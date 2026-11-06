@@ -19,11 +19,11 @@
 
 ## 2) النشر على GitHub Pages
 
-1. أنشئ مستودعاً جديداً على GitHub (مثلاً `orphans-form`) وارفع محتويات هذا المجلد.
+1. أنشئ مستودعاً جديداً على GitHub (`orphans`) وارفع محتويات هذا المجلد.
 2. **Settings ➜ Pages ➜ Build and deployment**: Source = **Deploy from a branch**، Branch = `main`، Folder = **`/docs`** ➜ Save.
-3. بعد دقيقة يصبح الموقع على: `https://<اسم-حسابك>.github.io/orphans-form/`
+3. بعد دقيقة يصبح الموقع على: `https://<اسم-حسابك>.github.io/orphans/`
    - الاستمارة: الرابط أعلاه
-   - لوحة المشرف: `.../orphans-form/admin.html`
+   - لوحة المشرف: `.../orphans/admin.html`
 
 ## 3) الاستخدام
 
