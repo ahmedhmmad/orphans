@@ -1,38 +1,37 @@
-# استمارة تسجيل بيانات الأيتام — THIRD PILLAR
+# نظام تسجيل بيانات الأيتام — THIRD PILLAR
 
-موقع ثابت (HTML) يُستضاف على **GitHub Pages**، والبيانات تُحفظ في **Supabase**.
+موقع ثابت على **GitHub Pages** + قاعدة بيانات **Supabase**.
 
 | الصفحة | الوظيفة |
 |---|---|
-| `docs/index.html` | استمارة التسجيل (للجميع) — نفس شكل الاستمارة الورقية، وتُطبع على صفحتي A4 |
-| `docs/admin.html` | لوحة المشرف: تسجيل دخول، قائمة السجلات، بحث، عرض/تعديل/طباعة، حذف، تصدير Excel |
-| `supabase/schema.sql` | إنشاء الجدول والصلاحيات ومخزن الصور |
+| `docs/index.html` | لوحة التحكم: دخول، الرئيسية (عدد المسجَّلين اليوم)، تسجيل يتيم، السجلات، المستخدمون |
+| `docs/paper.html` | الاستمارة الورقية (A4 صفحتان) — تُفتح تلقائياً للطباعة بعد كل حفظ |
+| `supabase/schema.sql` | الجدول ومخزن الصور (الإصدار 1) |
+| `supabase/migration_v2.sql` | الأدوار (مشرف / مسجِّل) وإغلاق التسجيل المجهول |
+| `supabase/functions/manage-users/index.ts` | دالة آمنة لإنشاء حسابات المسجِّلين من لوحة التحكم |
 
-## 1) إعداد Supabase (مرة واحدة)
+## الصلاحيات
+- **المشرف**: يرى كل السجلات، يعدّل ويحذف ويصدّر Excel، وينشئ حسابات المسجِّلين.
+- **المسجِّل**: يسجّل أيتاماً ويرى ويعدّل ما أدخله هو فقط، ويطبع استماراته.
+- الزائر بدون حساب لا يستطيع قراءة أو إضافة أي شيء.
 
-1. افتح مشروع **Orphans** ➜ **SQL Editor** ➜ **New query** ➜ الصق محتوى `supabase/schema.sql` ➜ **Run**.
-2. **Authentication ➜ Sign In / Providers ➜ Email**: أوقف **Allow new users to sign up**.
-   ⚠️ هذه الخطوة مهمة جداً: أي حساب مسجّل يستطيع قراءة بيانات الأيتام، لذلك يجب ألا يستطيع أي شخص إنشاء حساب بنفسه.
-3. **Authentication ➜ Users ➜ Add user ➜ Create new user**: أنشئ حساب المشرف (بريد + كلمة مرور) وفعّل **Auto Confirm User**.
-4. **Project Settings ➜ API Keys**: انسخ المفتاح العام (**Publishable key** أو **anon public**) وضعه في `docs/js/config.js` مكان `SUPABASE_ANON_KEY`.
-   لا تستخدم أبداً مفتاح `service_role` / `secret`.
+## الإعداد (مرة واحدة)
 
-## 2) النشر على GitHub Pages
+1. **تشغيل `schema.sql`** ثم **`migration_v2.sql`** من *SQL Editor* في Supabase.
+   (الحسابات الموجودة في Authentication وقت التشغيل تصبح «مشرف»، فتأكد أنها حسابك فقط.)
+2. **نشر دالة إدارة المستخدمين**: *Edge Functions ➜ Deploy a new function ➜ Via Editor*
+   - الاسم: `manage-users` (بالضبط)
+   - الصق محتوى `supabase/functions/manage-users/index.ts`
+   - أوقف خيار **Verify JWT** (الدالة تتحقق من المشرف بنفسها) ثم **Deploy**.
+3. في *Authentication ➜ Sign In / Providers ➜ Email* أوقف **Allow new users to sign up**.
+4. المفتاح العام في `docs/js/config.js` (Publishable key فقط، لا تضع مفتاح secret / service_role أبداً).
 
-1. أنشئ مستودعاً جديداً على GitHub (`orphans`) وارفع محتويات هذا المجلد.
-2. **Settings ➜ Pages ➜ Build and deployment**: Source = **Deploy from a branch**، Branch = `main`، Folder = **`/docs`** ➜ Save.
-3. بعد دقيقة يصبح الموقع على: `https://<اسم-حسابك>.github.io/orphans/`
-   - الاستمارة: الرابط أعلاه
-   - لوحة المشرف: `.../orphans/admin.html`
-
-## 3) الاستخدام
-
-- **التسجيل**: أي شخص يفتح الرابط يملأ الاستمارة ويضغط «إرسال البيانات». الصورة تُصغَّر تلقائياً قبل الرفع (أي مقاس).
-- **الطباعة / PDF**: زر «طباعة / PDF» ثم اختر *Save as PDF*، والمقاس A4، والهوامش *None*، وفعّل *Background graphics*.
-- **المشرف**: يدخل من `admin.html` ➜ يضغط «عرض / تعديل / طباعة» على أي سجل لفتح الاستمارة مملوءة بنفس التصميم.
+## الاستخدام
+- ادخل على `https://ahmedhmmad.github.io/orphans/` ← **المستخدمون** ← أنشئ حساب مسجِّل (اسم + بريد + كلمة مرور) وسلّمه البيانات.
+- المسجِّل يدخل ← **تسجيل يتيم** ← يملأ النموذج ← **حفظ وطباعة**: تُفتح نافذة الطباعة بالاستمارة الورقية.
+  في نافذة الطباعة اختر المقاس A4 والهوامش *None* وفعّل *Background graphics*.
 
 ## التجربة محلياً
-
 ```bash
 npx http-server docs -p 5173
 ```

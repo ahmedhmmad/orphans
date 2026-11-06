@@ -431,3 +431,9 @@ button, input, select, textarea { font: inherit; color: inherit; }
   select { appearance: none; -webkit-appearance: none; }
   .is-disabled { opacity: 1; }
 }
+
+/* صفحة الطباعة (paper.html): قراءة فقط */
+body.paper .photo { pointer-events: none; }
+body.paper #orphanForm { pointer-events: none; }
+body.paper .field:focus-within { box-shadow: none; border-color: var(--line); }
+body.paper .actions { pointer-events: auto; }
