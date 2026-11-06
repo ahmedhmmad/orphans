@@ -158,7 +158,7 @@
       <div class="cta"><a class="btn lg" href="#/register">+ تسجيل يتيم جديد</a><a class="btn ghost lg" href="#/records">عرض السجلات</a></div>
       <div class="cols ${admin ? 'two' : ''}">
         <div class="card"><h3>آخر التسجيلات</h3>
-          ${rows ? `<div class="table-wrap"><table class="list"><thead><tr><th>الرقم</th><th>الاسم</th><th>التاريخ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">لا توجد تسجيلات بعد.</p>'}
+          ${rows ? `<div class="table-wrap"><table class="list"><thead><tr><th>رقم الهوية</th><th>الاسم</th><th>التاريخ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">لا توجد تسجيلات بعد.</p>'}
         </div>
         ${admin ? `<div class="card"><h3>تسجيلات اليوم حسب المسجِّل</h3>
           ${Object.keys(byUser).length ? `<ul class="by-user">${Object.entries(byUser).map(([n, c]) => `<li><span>${esc(n)}</span><b>${c}</b></li>`).join('')}</ul>` : '<p class="empty">لا توجد تسجيلات اليوم.</p>'}
@@ -178,7 +178,7 @@
 
   const SECTIONS = [
     { n: 1, ar: 'البيانات الشخصية لليتيم', en: 'Orphan Personal Information', photo: true, fields: [
-      F('orphan_code', 'الرقم التعريفي لليتيم', 'Orphan ID'),
+      F('orphan_code', 'رقم الهوية (لليتيم)', 'ID Number'),
       F('full_name', 'الاسم الكامل', 'Full Name', { req: 1 }),
       F('gender', 'الجنس', 'Gender', { type: 'radio', options: GENDER, req: 1 }),
       F('birth_date', 'تاريخ الميلاد', 'Date of Birth', { type: 'date', req: 1 }),
@@ -444,7 +444,7 @@
         printRecord(id);
       } catch (err) {
         console.error(err);
-        setMsg(err?.code === '23505' ? 'الرقم التعريفي مسجّل من قبل' : 'تعذّر الحفظ: ' + (err?.message || err), 'err');
+        setMsg(err?.code === '23505' ? 'رقم الهوية مسجّل من قبل' : 'تعذّر الحفظ: ' + (err?.message || err), 'err');
         btn.disabled = false;
       }
     };
@@ -464,9 +464,9 @@
     const admin = me.role === 'admin';
     view.innerHTML = `<div class="page-head"><div><h2>السجلات</h2><p>${admin ? 'كل الأيتام المسجَّلين' : 'السجلات التي أدخلتها أنت'}</p></div>
       <div class="cta" style="margin:0"><a class="btn" href="#/register">+ تسجيل جديد</a>${admin ? '<button class="btn ghost" id="exportBtn">تصدير Excel (CSV)</button>' : ''}</div></div>
-      <div class="toolbar"><input id="search" type="search" placeholder="بحث بالاسم أو الرقم التعريفي أو اسم الأم أو الهاتف…"><span class="count" id="count"></span></div>
+      <div class="toolbar"><input id="search" type="search" placeholder="بحث بالاسم أو رقم الهوية أو اسم الأم أو الهاتف…"><span class="count" id="count"></span></div>
       <div class="card" style="padding:0"><div class="table-wrap"><table class="list"><thead><tr>
-        <th>الرقم</th><th>الاسم الكامل</th><th>الجنس</th><th>العمر</th><th>اسم الأم</th><th>الهاتف</th><th>التسجيل</th>${admin ? '<th>المسجِّل</th>' : ''}<th></th></tr></thead>
+        <th>رقم الهوية</th><th>الاسم الكامل</th><th>الجنس</th><th>العمر</th><th>اسم الأم</th><th>الهاتف</th><th>التسجيل</th>${admin ? '<th>المسجِّل</th>' : ''}<th></th></tr></thead>
         <tbody id="rows"><tr><td colspan="9" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
 
     const [recs, profs] = await Promise.all([
@@ -512,7 +512,7 @@
   }
 
   const HEADERS = {
-    orphan_code: 'الرقم التعريفي', full_name: 'الاسم الكامل', gender: 'الجنس', age: 'العمر', nationality: 'الجنسية', birth_date: 'تاريخ الميلاد',
+    orphan_code: 'رقم الهوية', full_name: 'الاسم الكامل', gender: 'الجنس', age: 'العمر', nationality: 'الجنسية', birth_date: 'تاريخ الميلاد',
     mobile: 'الهاتف', arrival_date: 'تاريخ الوصول لمصر', address: 'العنوان الحالي', sponsorship_start: 'بدء الكفالة', sponsorship_end: 'انتهاء الكفالة',
     father_name: 'اسم الأب', father_birth_date: 'ميلاد الأب', father_death_date: 'وفاة الأب', father_death_cause: 'سبب وفاة الأب', father_death_place: 'مكان وفاة الأب',
     mother_name: 'اسم الأم', mother_birth_date: 'ميلاد الأم', mother_occupation: 'مهنة الأم', mother_phone: 'هاتف الأم', mother_status: 'حالة الأم',
