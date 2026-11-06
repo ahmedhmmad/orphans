@@ -4,6 +4,6 @@
 // ⚠️ لا تضع هنا مفتاح service_role / secret أبداً.
 window.APP_CONFIG = {
   SUPABASE_URL: 'https://bzaheeyodulinlzinbyb.supabase.co',
-  SUPABASE_ANON_KEY: 'ضع_هنا_المفتاح_العام_Publishable_key',
+  SUPABASE_ANON_KEY: 'sb_publishable_6AwVkRDq6X0zkv45Hkmhlw_TDVHeb1z',
   PHOTO_BUCKET: 'orphan-photos',
 };
