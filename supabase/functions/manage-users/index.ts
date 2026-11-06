@@ -17,6 +17,7 @@ const json = (body: unknown, status = 200) =>
   new Response(JSON.stringify(body), { status, headers: { ...cors, 'Content-Type': 'application/json' } });
 
 const ROLES = ['admin', 'registrar'];
+const USERNAME_RE = /^[a-z0-9._-]{3,30}$/;
 
 Deno.serve(async (req) => {
   if (req.method === 'OPTIONS') return new Response('ok', { headers: cors });
@@ -59,10 +60,14 @@ Deno.serve(async (req) => {
         const email = String(body.email ?? '').trim().toLowerCase();
         const password = String(body.password ?? '');
         const full_name = String(body.full_name ?? '').trim();
+        const username = String(body.username ?? '').trim().toLowerCase();
         const role = ROLES.includes(body.role) ? body.role : 'registrar';
         if (!/^[^@\s]+@[^@\s]+\.[^@\s]+$/.test(email)) return json({ error: 'البريد الإلكتروني غير صحيح' }, 400);
         if (password.length < 8) return json({ error: 'كلمة المرور يجب ألا تقل عن 8 أحرف' }, 400);
         if (!full_name) return json({ error: 'اسم المسجِّل مطلوب' }, 400);
+        if (!USERNAME_RE.test(username)) return json({ error: 'اسم المستخدم: 3-30 حرفاً إنجليزياً أو أرقاماً أو . _ -' }, 400);
+        const { data: taken } = await db.from('profiles').select('id').ilike('username', username).maybeSingle();
+        if (taken) return json({ error: 'اسم المستخدم مستخدم من قبل' }, 400);
 
         const { data: created, error } = await db.auth.admin.createUser({
           email,
@@ -74,7 +79,7 @@ Deno.serve(async (req) => {
           const dup = /already|registered|exists/i.test(error.message);
           return json({ error: dup ? 'هذا البريد مسجّل من قبل' : error.message }, 400);
         }
-        const { error: pErr } = await db.from('profiles').insert({ id: created.user.id, full_name, role });
+        const { error: pErr } = await db.from('profiles').insert({ id: created.user.id, full_name, username, role });
         if (pErr) {
           await db.auth.admin.deleteUser(created.user.id);
           throw pErr;
@@ -89,6 +94,13 @@ Deno.serve(async (req) => {
         if (typeof body.active === 'boolean') patch.active = body.active;
         if (typeof body.full_name === 'string' && body.full_name.trim()) patch.full_name = body.full_name.trim();
         if (ROLES.includes(body.role)) patch.role = body.role;
+        if (body.username !== undefined) {
+          const un = String(body.username).trim().toLowerCase();
+          if (!USERNAME_RE.test(un)) return json({ error: 'اسم المستخدم: 3-30 حرفاً إنجليزياً أو أرقاماً أو . _ -' }, 400);
+          const { data: taken } = await db.from('profiles').select('id').ilike('username', un).neq('id', id).maybeSingle();
+          if (taken) return json({ error: 'اسم المستخدم مستخدم من قبل' }, 400);
+          patch.username = un;
+        }
         if (id === me && (patch.active === false || (patch.role && patch.role !== 'admin'))) {
           return json({ error: 'لا يمكنك تعطيل حسابك أو إنزال صلاحيتك' }, 400);
         }

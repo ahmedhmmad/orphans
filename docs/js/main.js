@@ -87,9 +87,14 @@
     const btn = f.querySelector('button');
     $('#loginMsg').textContent = '';
     btn.disabled = true;
-    const { data, error } = await sb.auth.signInWithPassword({ email: f.email.value.trim(), password: f.password.value });
+    let id = f.email.value.trim();
+    if (!id.includes('@')) {
+      const { data: em } = await sb.rpc('email_for_username', { u: id });
+      id = em || '';
+    }
+    const { data, error } = id ? await sb.auth.signInWithPassword({ email: id, password: f.password.value }) : { error: true };
     btn.disabled = false;
-    if (error) return ($('#loginMsg').textContent = 'البريد أو كلمة المرور غير صحيحة');
+    if (error) return ($('#loginMsg').textContent = 'اسم المستخدم أو كلمة المرور غير صحيحة');
     f.reset();
     await enter(data.user);
   });
@@ -555,28 +560,30 @@
       <div class="card" style="margin-bottom:18px"><h3>إضافة حساب جديد</h3>
         <form id="addUser" class="add-user" novalidate>
           <label>الاسم<input name="full_name" required></label>
+          <label>اسم المستخدم<input name="username" dir="ltr" required autocomplete="off" placeholder="مثال: ahmed.ali"></label>
           <label>البريد الإلكتروني<input name="email" type="email" dir="ltr" required autocomplete="off"></label>
           <label>كلمة المرور (8 أحرف فأكثر)<input name="password" type="text" dir="ltr" required minlength="8" autocomplete="off"></label>
           <label>الصلاحية<select name="role"><option value="registrar">مسجِّل</option><option value="admin">مشرف</option></select></label>
-          <span></span><button class="btn" type="submit">إنشاء الحساب</button>
+          <button class="btn" type="submit">إنشاء الحساب</button>
         </form><p id="addMsg" class="msg" style="margin-top:8px"></p></div>
-      <div class="card" style="padding:0"><div class="table-wrap"><table class="list"><thead><tr><th>الاسم</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th>آخر دخول</th><th></th></tr></thead>
-        <tbody id="urows"><tr><td colspan="6" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
+      <div class="card" style="padding:0"><div class="table-wrap"><table class="list"><thead><tr><th>الاسم</th><th>اسم المستخدم</th><th>البريد</th><th>الصلاحية</th><th>الحالة</th><th>آخر دخول</th><th></th></tr></thead>
+        <tbody id="urows"><tr><td colspan="7" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
 
     let users = [];
     const load = async () => {
       try {
         users = (await callUsers({ action: 'list' })).users;
         $('#urows').innerHTML = users.map(u => `<tr>
-          <td><b>${esc(u.full_name)}</b></td><td dir="ltr" style="text-align:end">${esc(u.email)}</td>
+          <td><b>${esc(u.full_name)}</b></td><td dir="ltr" style="text-align:end">${esc(u.username)}</td><td dir="ltr" style="text-align:end">${esc(u.email)}</td>
           <td><span class="tag">${ROLE_AR[u.role]}</span></td>
           <td><span class="tag ${u.active ? 'ok' : 'off'}">${u.active ? 'مفعّل' : 'معطّل'}</span></td>
           <td>${u.last_sign_in_at ? fmtDate(u.last_sign_in_at) : '—'}</td>
           <td class="act">${u.id === me.id ? '<small>حسابك</small>' : `
             <button class="btn link" data-act="toggle" data-id="${u.id}">${u.active ? 'تعطيل' : 'تفعيل'}</button>
+            <button class="btn link" data-act="uname" data-id="${u.id}">اسم المستخدم</button>
             <button class="btn link" data-act="pass" data-id="${u.id}">كلمة المرور</button>
             <button class="btn link red" data-act="del" data-id="${u.id}">حذف</button>`}</td></tr>`).join('');
-      } catch (e) { $('#urows').innerHTML = `<tr><td colspan="6" class="msg err" style="padding:16px">${esc(e.message)}</td></tr>`; }
+      } catch (e) { $('#urows').innerHTML = `<tr><td colspan="7" class="msg err" style="padding:16px">${esc(e.message)}</td></tr>`; }
     };
     await load();
 
@@ -586,7 +593,7 @@
       m.className = 'msg'; m.textContent = '';
       btn.disabled = true;
       try {
-        await callUsers({ action: 'create', full_name: f.full_name.value, email: f.email.value, password: f.password.value, role: f.role.value });
+        await callUsers({ action: 'create', full_name: f.full_name.value, username: f.username.value, email: f.email.value, password: f.password.value, role: f.role.value });
         m.className = 'msg ok'; m.textContent = 'تم إنشاء الحساب. سلّم المسجِّل البريد وكلمة المرور.';
         f.reset();
         await load();
@@ -600,6 +607,12 @@
       const u = users.find(x => x.id === b.dataset.id);
       try {
         if (b.dataset.act === 'toggle') await callUsers({ action: 'update', id: u.id, active: !u.active });
+        if (b.dataset.act === 'uname') {
+          const n = prompt('اسم المستخدم الجديد (حروف إنجليزية وأرقام و . _ -):', u.username || '');
+          if (!n) return;
+          await callUsers({ action: 'update', id: u.id, username: n });
+          toast('تم تغيير اسم المستخدم', 'ok');
+        }
         if (b.dataset.act === 'pass') {
           const p = prompt(`كلمة مرور جديدة لـ ${u.full_name} (8 أحرف على الأقل):`);
           if (!p) return;
