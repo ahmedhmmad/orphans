@@ -437,3 +437,13 @@ body.paper .photo { pointer-events: none; }
 body.paper #orphanForm { pointer-events: none; }
 body.paper .field:focus-within { box-shadow: none; border-color: var(--line); }
 body.paper .actions { pointer-events: auto; }
+
+/* خط تعبئة البيانات في الاستمارة: Times New Roman أسود */
+body.paper input, body.paper select, body.paper textarea {
+  font-family: "Times New Roman", Times, serif !important;
+  color: #000 !important;
+  font-size: 14px;
+  font-weight: 700;
+}
+body.paper .tbl td input, body.paper .tbl td select { font-size: 13px; }
+body.paper .expenses .total input { font-size: 15px; }
