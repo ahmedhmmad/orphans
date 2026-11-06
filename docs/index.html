@@ -8,7 +8,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Tajawal:wght@400;500;700;800;900&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/app.css?v=8">
+  <link rel="stylesheet" href="css/app.css?v=9">
 </head>
 <body>
 
@@ -47,11 +47,22 @@
     </nav>
     <div class="side-user">
       <div class="who"><b id="meName"></b><small id="meRole"></small></div>
-      <button id="logoutBtn" class="btn ghost sm" type="button">خروج</button>
+      <div class="acts"><button id="pwBtn" class="btn ghost sm" type="button" title="تغيير كلمة المرور">🔑</button><button id="logoutBtn" class="btn ghost sm" type="button">خروج</button></div>
     </div>
   </aside>
   <main id="view" class="main"></main>
 </div>
+
+<dialog id="pwDialog" class="dlg">
+  <form id="pwForm" novalidate>
+    <h3>تغيير كلمة المرور</h3>
+    <label>كلمة المرور الحالية<input type="password" name="cur" dir="ltr" required autocomplete="current-password"></label>
+    <label>كلمة المرور الجديدة (8 أحرف فأكثر)<input type="password" name="new1" dir="ltr" required minlength="8" autocomplete="new-password"></label>
+    <label>تأكيد كلمة المرور الجديدة<input type="password" name="new2" dir="ltr" required autocomplete="new-password"></label>
+    <p id="pwMsg" class="msg err" role="alert"></p>
+    <div class="btns"><button type="button" class="btn ghost" id="pwCancel">إلغاء</button><button type="submit" class="btn">حفظ</button></div>
+  </form>
+</dialog>
 
 <div id="toast" class="toast" hidden></div>
 
@@ -63,7 +74,7 @@
 </svg>
 
 <script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2.45.4/dist/umd/supabase.min.js"></script>
-<script src="js/config.js?v=8"></script>
-<script src="js/main.js?v=8"></script>
+<script src="js/config.js?v=9"></script>
+<script src="js/main.js?v=9"></script>
 </body>
 </html>

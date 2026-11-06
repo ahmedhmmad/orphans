@@ -250,6 +250,13 @@ table.list td.act { white-space: nowrap; text-align: end; }
   .savebar .btns .btn { flex: 1; }
 }
 
+.side-user .acts { display: flex; gap: 6px; }
+.dlg { border: 0; border-radius: 18px; padding: 24px; width: min(92vw, 400px); box-shadow: 0 20px 60px rgba(13, 45, 108, .35); font-family: inherit; }
+.dlg::backdrop { background: rgba(13, 45, 108, .45); }
+.dlg form { display: flex; flex-direction: column; gap: 12px; }
+.dlg label { display: flex; flex-direction: column; gap: 4px; font-weight: 700; color: var(--ink); }
+.dlg .btns { display: flex; gap: 10px; justify-content: flex-end; }
+
 /* منع تمدد الشبكة خارج الشاشة */
 .shell { grid-template-columns: 250px minmax(0, 1fr); }
 .sec-b, .stats { grid-template-columns: repeat(auto-fit, minmax(0, 1fr)); }

@@ -99,6 +99,26 @@
     await enter(data.user);
   });
 
+  const pwDlg = $('#pwDialog');
+  $('#pwBtn').addEventListener('click', () => { $('#pwForm').reset(); $('#pwMsg').textContent = ''; pwDlg.showModal(); });
+  $('#pwCancel').addEventListener('click', () => pwDlg.close());
+  $('#pwForm').addEventListener('submit', async e => {
+    e.preventDefault();
+    const f = e.target, m = $('#pwMsg'), btn = f.querySelector('[type=submit]');
+    m.className = 'msg err'; m.textContent = '';
+    if (f.new1.value.length < 8) return (m.textContent = 'كلمة المرور الجديدة يجب ألا تقل عن 8 أحرف');
+    if (f.new1.value !== f.new2.value) return (m.textContent = 'تأكيد كلمة المرور غير مطابق');
+    if (f.new1.value === f.cur.value) return (m.textContent = 'كلمة المرور الجديدة مطابقة للحالية');
+    btn.disabled = true;
+    const { error: e1 } = await sb.auth.signInWithPassword({ email: me.email, password: f.cur.value });
+    if (e1) { btn.disabled = false; return (m.textContent = 'كلمة المرور الحالية غير صحيحة'); }
+    const { error: e2 } = await sb.auth.updateUser({ password: f.new1.value });
+    btn.disabled = false;
+    if (e2) return (m.textContent = 'تعذّر التغيير: ' + e2.message);
+    pwDlg.close();
+    toast('تم تغيير كلمة المرور', 'ok');
+  });
+
   $('#logoutBtn').addEventListener('click', async () => {
     await sb.auth.signOut();
     me = null;
