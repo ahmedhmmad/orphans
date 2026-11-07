@@ -191,7 +191,7 @@
   const GENDER = [['male', 'ذكر', 'Male'], ['female', 'أنثى', 'Female']];
   const YN = [['true', 'نعم', 'Yes'], ['false', 'لا', 'No']];
   const MSTATUS = [['alive', 'على قيد الحياة', 'Alive'], ['deceased', 'متوفاة', 'Deceased']];
-  const HOUSING = [['owned', 'ملك / Owned'], ['rented', 'إيجار / Rented'], ['temporary', 'مؤقت / Temporary'], ['shared', 'مشترك / Shared']];
+  const HOUSING = [['owned', 'ملك / Owned'], ['rented', 'إيجار / Rented'], ['temporary', 'مؤقت / Temporary'], ['shared', 'مشترك / Shared'], ['sponsored', 'مكفول / Sponsored']];
   const RELATIONS = ['أخ شقيق', 'أخت شقيقة', 'أخ غير شقيق', 'أخت غير شقيقة'];
   const F = (name, ar, en, o = {}) => ({ name, ar, en, ...o });
   const H = text => ({ heading: text });
@@ -293,6 +293,7 @@
   async function registerView(params) {
     const editId = params.get('id');
     view.innerHTML = `<div class="page-head"><div><h2>${editId ? 'تعديل بيانات يتيم' : 'تسجيل يتيم جديد'}</h2><p>الحقول المعلَّمة بـ <b style="color:var(--danger)">*</b> إلزامية</p></div></div>
+      <div id="draftBanner" class="banner" hidden></div>
       <form id="regForm" class="reg" novalidate autocomplete="off">
         ${SECTIONS.map(s => `
           <section class="sec"><div class="sec-h"><div class="sec-n">${s.n}</div><div><h3>${s.ar}</h3><small>${s.en}</small></div></div>
@@ -302,8 +303,8 @@
             ${s.siblings ? `<div class="sibs" id="sibs"></div><div class="fld span2"><button type="button" class="btn ghost sm" id="addSib" style="align-self:flex-start">+ إضافة أخ / أخت</button></div>` : ''}
             ${s.fields.map(fieldHTML).join('')}
           </div></section>`).join('')}
-        <div class="savebar"><p id="regMsg" class="msg"></p>
-          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a><button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات وطباعة' : 'حفظ وطباعة الاستمارة'}</button></div></div>
+        <div class="savebar"><p id="regMsg" class="msg"></p><small id="draftNote"></small>
+          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات وطباعة' : 'حفظ وطباعة الاستمارة'}</button></div></div>
       </form>`;
 
     const form = $('#regForm');
@@ -362,7 +363,7 @@
     $('#phInput').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
-      try { photoBlob = await resizeImage(file); showPhoto(URL.createObjectURL(photoBlob)); }
+      try { photoBlob = await resizeImage(file); photoData = await blobToData(photoBlob); showPhoto(URL.createObjectURL(photoBlob)); queueDraft(); }
       catch { photoBlob = null; toast('تعذّر قراءة الصورة. استخدم JPG أو PNG', 'err'); }
     };
 
@@ -438,6 +439,44 @@
       return true;
     }
 
+    // ===== المسودة: حفظ مؤقت في هذا المتصفح أثناء الإدخال =====
+    const DKEY = 'tp_draft_' + me.id;
+    let photoData = null;
+    let dt;
+    const blobToData = b => new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(b); });
+    const hasContent = d => !!photoData || d.siblings.length > 0 ||
+      Object.entries(d).some(([k, v]) => k === 'siblings' ? false : k === 'nationality' ? (v && v !== 'فلسطيني') : (v !== null && v !== ''));
+    function clearDraft() { clearTimeout(dt); try { localStorage.removeItem(DKEY); } catch { /* ignore */ } }
+    function saveDraft(manual) {
+      if (editId) return;
+      const d = collect();
+      if (!hasContent(d)) { if (manual) toast('لا توجد بيانات لحفظها بعد'); return; }
+      try {
+        localStorage.setItem(DKEY, JSON.stringify({ d, photo: photoData, t: Date.now() }));
+        $('#draftNote').textContent = 'حُفظت مسودة ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
+        if (manual) toast('تم حفظ المسودة مؤقتاً', 'ok');
+      } catch { if (manual) toast('تعذّر حفظ المسودة', 'err'); }
+    }
+    const queueDraft = () => { clearTimeout(dt); dt = setTimeout(() => saveDraft(false), 800); };
+    if (!editId) {
+      form.addEventListener('input', queueDraft);
+      form.addEventListener('change', queueDraft);
+      form.addEventListener('click', e => { if (e.target.closest('#addSib, .rm')) queueDraft(); });
+      $('#draftBtn').onclick = () => saveDraft(true);
+      try {
+        const raw = localStorage.getItem(DKEY);
+        if (raw) {
+          const { d, photo, t } = JSON.parse(raw);
+          fill(d);
+          if (photo) fetch(photo).then(r => r.blob()).then(b => { photoData = photo; photoBlob = b; showPhoto(photo); });
+          const bn = $('#draftBanner');
+          bn.hidden = false;
+          bn.innerHTML = `<span>تم استرجاع مسودة محفوظة (${new Date(t).toLocaleString('ar-EG')})</span><button type="button" class="btn link red" id="clrDraft">مسح المسودة وبدء نموذج جديد</button>`;
+          $('#clrDraft').onclick = () => { clearDraft(); route(); };
+        }
+      } catch { /* ignore */ }
+    }
+
     form.onsubmit = async e => {
       e.preventDefault();
       if (!validate()) return;
@@ -461,6 +500,7 @@
           const { error } = await sb.from('orphans').insert(data);
           if (error) throw error;
         }
+        clearDraft();
         showSuccess(id, data.full_name, !!editId);
         printRecord(id);
       } catch (err) {
@@ -543,7 +583,7 @@
     guardian: 'المعيل', income_source: 'مصدر الدخل', monthly_income: 'متوسط الدخل', other_support: 'مساعدات أخرى', exp_rent: 'م. الإيجار',
     exp_food: 'م. الطعام', exp_treatment: 'م. العلاج', exp_education: 'م. التعليم والمواصلات', exp_other: 'م. أخرى', exp_total: 'إجمالي المصروفات', created_at: 'تاريخ التسجيل',
   };
-  const LABELS = { male: 'ذكر', female: 'أنثى', alive: 'على قيد الحياة', deceased: 'متوفاة', owned: 'ملك', rented: 'إيجار', temporary: 'مؤقت', shared: 'مشترك' };
+  const LABELS = { male: 'ذكر', female: 'أنثى', alive: 'على قيد الحياة', deceased: 'متوفاة', owned: 'ملك', rented: 'إيجار', temporary: 'مؤقت', shared: 'مشترك', sponsored: 'مكفول' };
   const cell = v => {
     if (v === null || v === undefined) return '';
     if (v === true) v = 'نعم';

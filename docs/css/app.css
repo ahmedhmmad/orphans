@@ -268,3 +268,6 @@ table.list td.act { white-space: nowrap; text-align: end; }
   .photo-up { flex-wrap: wrap; }
   .sib { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
 }
+
+.banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: #fff8e1; border: 1px solid #f5d77a; color: #7a5b00; border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; font-weight: 700; }
+#draftNote { color: var(--muted); font-weight: 700; }
