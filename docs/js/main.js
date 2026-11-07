@@ -316,7 +316,7 @@
             ${s.fields.map(fieldHTML).join('')}
           </div></section>${s.n === 1 ? FAM_CARD : ''}`).join('')}
         <div class="savebar"><p id="regMsg" class="msg"></p><small id="draftNote"></small>
-          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات وطباعة' : 'حفظ وطباعة الاستمارة'}</button></div></div>
+          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات' : 'حفظ'}</button></div></div>
       </form>`;
 
     const form = $('#regForm');
@@ -499,6 +499,12 @@
         if (!bad && val && t === 'number' && (isNaN(Number(val)) || Number(val) < (f.min ?? 0) || (f.max != null && Number(val) > f.max))) bad = true;
         if (bad) { wrap.classList.add('invalid'); first ??= wrap; }
       });
+      // الإخوة: إن كُتب الاسم فصلة القرابة إلزامية
+      $$('.sib', sibs).forEach(r => {
+        const rel = $('[data-s=relation]', r);
+        rel.classList.remove('bad');
+        if ($('[data-s=name]', r).value.trim() && !rel.value) { rel.classList.add('bad'); first ??= r; }
+      });
       if (first) {
         first.scrollIntoView({ behavior: 'smooth', block: 'center' });
         setMsg('برجاء استكمال الحقول المحددة باللون الأحمر', 'err');
@@ -583,7 +589,6 @@
         }
         clearDraft();
         showSuccess(id, data.full_name, !!editId);
-        printRecord(id);
       } catch (err) {
         console.error(err);
         setMsg(err?.code === '23505' ? 'رقم الهوية مسجّل من قبل' : 'تعذّر الحفظ: ' + (err?.message || err), 'err');
@@ -595,8 +600,8 @@
   function showSuccess(id, name, edited) {
     view.innerHTML = `<div class="card success"><div class="ic">✔</div>
       <h2>${edited ? 'تم حفظ التعديلات' : 'تم تسجيل البيانات بنجاح'}</h2>
-      <p>${esc(name)} — جارِ فتح نافذة الطباعة للاستمارة…</p>
-      <div class="cta"><button class="btn" id="rePrint">🖨 إعادة الطباعة</button><a class="btn ghost" href="#/register" id="again">تسجيل يتيم آخر</a><a class="btn ghost" href="#/records">عرض السجلات</a></div></div>`;
+      <p>${esc(name)}</p>
+      <div class="cta"><button class="btn" id="rePrint">🖨 طباعة الاستمارة</button><a class="btn ghost" href="#/register" id="again">تسجيل يتيم آخر</a><a class="btn ghost" href="#/records">عرض السجلات</a></div></div>`;
     $('#rePrint').onclick = () => printRecord(id);
     $('#again').onclick = () => { if (location.hash === '#/register') route(); };
   }
