@@ -316,7 +316,7 @@
             ${s.fields.map(fieldHTML).join('')}
           </div></section>${s.n === 1 ? FAM_CARD : ''}`).join('')}
         <div class="savebar"><p id="regMsg" class="msg"></p><small id="draftNote"></small>
-          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات' : 'حفظ'}</button></div></div>
+          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '<button type="button" class="btn ghost" id="printEditBtn">🖨 طباعة</button>' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات' : 'حفظ'}</button></div></div>
       </form>`;
 
     const form = $('#regForm');
@@ -427,6 +427,8 @@
     };
     famRes.onclick = e => { const li = e.target.closest('[data-fid]'); if (li) linkFamily(li.dataset.fid); };
     renderFamily();
+
+    if (editId) $('#printEditBtn').onclick = () => { printRecord(editId); toast('تُطبع النسخة المحفوظة. احفظ تعديلاتك أولاً لتظهر في الطباعة'); };
 
     // تحميل سجل للتعديل
     if (editId) {
