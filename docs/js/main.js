@@ -354,6 +354,7 @@
       e.target.closest('.fld')?.classList.remove('invalid');
     });
     applyDeps();
+    if (!editId) form.nationality.value = 'فلسطيني'; // افتراضي، قابل للتعديل
 
     // الصورة
     const showPhoto = src => { const i = $('#phImg'); i.src = src; i.hidden = false; $('#phBox svg').style.display = 'none'; };
