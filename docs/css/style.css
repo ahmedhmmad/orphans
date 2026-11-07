@@ -457,3 +457,5 @@ body.paper input.is-empty, body.paper select.is-empty { color: transparent !impo
 .qr-slot svg { width: 15mm; height: 15mm; display: block; }
 .qr-slot small { font-size: 7px; font-weight: 800; color: var(--navy); margin-top: 1px; }
 .page-foot:not(:has(svg)) .qr-slot { display: none; }
+/* إخفاء رمز الكاميرا عند وجود صورة حقيقية */
+.photo:has(img:not([hidden])) .photo-cam { display: none; }
