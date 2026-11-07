@@ -128,13 +128,13 @@
   });
 
   /* ============================== التوجيه ============================== */
-  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView };
+  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView, photos: photosView };
 
   function route() {
     if (!me) return;
     const [path, qs] = (location.hash.replace(/^#\/?/, '') || 'home').split('?');
     let name = path || 'home';
-    if (!ROUTES[name] || (name === 'users' && me.role !== 'admin')) name = 'home';
+    if (!ROUTES[name] || ((name === 'users' || name === 'photos') && me.role !== 'admin')) name = 'home';
     $$('#nav a').forEach(a => a.classList.toggle('active', a.dataset.route === name));
     window.scrollTo(0, 0);
     ROUTES[name](new URLSearchParams(qs || ''));
@@ -687,6 +687,111 @@
     a.download = `orphans-${new Date().toISOString().slice(0, 10)}.csv`;
     a.click();
     URL.revokeObjectURL(a.href);
+  }
+
+  /* ============================== رفع صور دفعة واحدة (للمشرف) ============================== */
+  const normN = t => String(t || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه')
+    .replace(/[٠-٩]/g, d => d.charCodeAt(0) - 0x660).replace(/[_\-.()]+/g, ' ').replace(/\s+/g, ' ').trim();
+
+  async function fetchAll(table, cols) {
+    const out = [];
+    for (let from = 0; ; from += 1000) {
+      const { data, error } = await sb.from(table).select(cols).order('created_at').range(from, from + 999);
+      if (error) throw error;
+      out.push(...data);
+      if (data.length < 1000) break;
+    }
+    return out;
+  }
+
+  async function photosView() {
+    view.innerHTML = `<div class="page-head"><div><h2>رفع صور الأيتام</h2>
+      <p>اختر عدة صور دفعة واحدة. تُطابَق مع السجلات باسم الملف: <b>رقم الهوية</b> (مثل 445813496.jpg) أو <b>اسم اليتيم</b>. راجع المطابقة قبل الرفع.</p></div></div>
+      <div class="card"><div class="cta" style="margin:0 0 12px"><button class="btn" id="pickPh">اختيار الصور…</button>
+        <label class="chk"><input type="checkbox" id="repl"> استبدال الصور الموجودة</label>
+        <button class="btn ok" id="goUp" disabled>رفع المطابق</button></div>
+        <p id="phMsg" class="msg"></p>
+        <div class="table-wrap"><table class="list"><thead><tr><th></th><th>الصورة</th><th>اسم الملف</th><th>اليتيم المطابق</th><th>الحالة</th></tr></thead>
+        <tbody id="phRows"><tr><td colspan="5" class="empty">لم تُختر صور بعد.</td></tr></tbody></table></div></div>
+      <input type="file" id="phFiles" accept="image/*" multiple hidden>`;
+
+    let orphans = [];
+    try { orphans = await fetchAll('orphans', 'id, orphan_code, full_name, photo_path, created_at'); }
+    catch (e) { return ($('#phMsg').textContent = 'تعذّر تحميل السجلات: ' + e.message); }
+    const byCode = new Map(orphans.map(o => [normN(o.orphan_code).replace(/\s/g, ''), o]));
+    const nameWords = orphans.map(o => ({ o, w: normN(o.full_name).split(' ') }));
+    let items = [];
+
+    const match = file => {
+      const stem = file.name.replace(/\.[^.]+$/, '');
+      const n = normN(stem);
+      const digits = n.replace(/\s/g, '');
+      if (/^\d{4,}$/.test(digits)) return { o: byCode.get(digits) || null, why: 'لا يوجد يتيم بهذا الرقم' };
+      const exact = orphans.filter(o => normN(o.full_name) === n);
+      if (exact.length === 1) return { o: exact[0] };
+      const words = n.split(' ').filter(Boolean);
+      if (words.length < 2) return { o: null, why: 'الاسم قصير، استخدم رقم الهوية' };
+      const c = nameWords.filter(x => words.every(w => x.w.includes(w)));
+      if (c.length === 1) return { o: c[0].o };
+      return { o: null, why: c.length ? `يطابق ${c.length} أيتام` : 'لا يوجد يتيم بهذا الاسم' };
+    };
+
+    const render = () => {
+      const repl = $('#repl').checked;
+      const seen = new Set();
+      items.forEach(it => {
+        it.state = 'none';
+        if (!it.o) { it.msg = it.why; return; }
+        if (seen.has(it.o.id)) { it.msg = 'صورة أخرى لنفس اليتيم'; return; }
+        seen.add(it.o.id);
+        if (it.o.photo_path && !repl) { it.msg = 'لها صورة (تخطي)'; it.state = 'skip'; return; }
+        it.state = 'ready'; it.msg = it.o.photo_path ? 'ستستبدل الصورة الحالية' : 'جاهزة';
+      });
+      $('#phRows').innerHTML = items.map((it, i) => `<tr>
+        <td><input type="checkbox" data-i="${i}" ${it.state === 'ready' && it.on !== false ? 'checked' : ''} ${it.state !== 'ready' ? 'disabled' : ''}></td>
+        <td><img class="th" src="${it.url}" alt=""></td><td dir="ltr" style="text-align:end">${esc(it.file.name)}</td>
+        <td>${it.o ? `<b>${esc(it.o.full_name)}</b> <small>${esc(it.o.orphan_code || '')}</small>` : '—'}</td>
+        <td><span class="tag ${it.state === 'ready' ? 'ok' : it.state === 'done' ? 'ok' : 'off'}">${esc(it.msg)}</span></td></tr>`).join('');
+      const n = items.filter(i => i.state === 'ready' && i.on !== false).length;
+      $('#goUp').disabled = !n;
+      $('#goUp').textContent = n ? `رفع ${n} صورة` : 'رفع المطابق';
+      $('#phMsg').textContent = items.length ? `${items.length} ملف: ${items.filter(i => i.state === 'ready').length} جاهز، ${items.filter(i => i.state === 'none').length} غير مطابق، ${items.filter(i => i.state === 'skip').length} متخطى` : '';
+    };
+
+    $('#pickPh').onclick = () => $('#phFiles').click();
+    $('#phFiles').onchange = e => {
+      items.forEach(i => URL.revokeObjectURL(i.url));
+      items = [...e.target.files].sort((a, b) => a.name.localeCompare(b.name)).map(file => ({ file, url: URL.createObjectURL(file), ...match(file) }));
+      render();
+    };
+    $('#repl').onchange = render;
+    $('#phRows').onchange = e => { const i = e.target.dataset?.i; if (i !== undefined) { items[i].on = e.target.checked; render(); } };
+
+    $('#goUp').onclick = async () => {
+      const todo = items.filter(i => i.state === 'ready' && i.on !== false);
+      $('#goUp').disabled = $('#pickPh').disabled = true;
+      let done = 0, failed = 0;
+      const worker = async () => {
+        while (todo.length) {
+          const it = todo.shift();
+          try {
+            const blob = await resizeImage(it.file);
+            const path = `${it.o.id}.jpg`;
+            const up = await sb.storage.from(PHOTO_BUCKET).upload(path, blob, { contentType: 'image/jpeg', upsert: true });
+            if (up.error) throw up.error;
+            const u = await sb.from('orphans').update({ photo_path: path }).eq('id', it.o.id);
+            if (u.error) throw u.error;
+            it.o.photo_path = path; it.state = 'done'; it.msg = 'تم الرفع'; done++;
+          } catch (err) { it.state = 'none'; it.msg = 'فشل: ' + (err.message || err); failed++; }
+          $('#phMsg').textContent = `جارِ الرفع… ${done + failed}`;
+        }
+      };
+      await Promise.all([worker(), worker(), worker()]);
+      $('#pickPh').disabled = false;
+      render();
+      $('#phMsg').textContent = `تم رفع ${done} صورة` + (failed ? ` — فشل ${failed}` : '');
+      toast(`تم رفع ${done} صورة` + (failed ? `، وفشل ${failed}` : ''), failed ? 'err' : 'ok');
+    };
   }
 
   /* ============================== المستخدمون ============================== */

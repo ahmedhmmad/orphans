@@ -281,3 +281,8 @@ table.list td.act { white-space: nowrap; text-align: end; }
 .fam-res li { background: #fff; border: 1.5px solid var(--line); border-radius: 11px; padding: 9px 12px; cursor: pointer; }
 .fam-res li[data-fid]:hover { border-color: var(--navy-2); background: var(--soft); }
 .fam-res li.hint { cursor: default; color: var(--muted); border-style: dashed; }
+
+.chk { display: inline-flex; align-items: center; gap: 6px; font-weight: 700; }
+.chk input { width: auto; min-height: 0; }
+img.th { width: 40px; height: 48px; object-fit: cover; border-radius: 6px; display: block; }
+table.list td input[type=checkbox] { width: 18px; min-height: 0; }
