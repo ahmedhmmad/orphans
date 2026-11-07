@@ -326,6 +326,7 @@
     let existingPhoto = null;
     let record = null;
     let familyId = null;
+    let dirty = false; // تعديلات لم تُحفظ بعد
     let members = [];
 
     // الإخوة
@@ -377,7 +378,7 @@
     $('#phInput').onchange = async e => {
       const file = e.target.files[0];
       if (!file) return;
-      try { photoBlob = await resizeImage(file); photoData = await blobToData(photoBlob); showPhoto(URL.createObjectURL(photoBlob)); queueDraft(); }
+      try { dirty = true; photoBlob = await resizeImage(file); photoData = await blobToData(photoBlob); showPhoto(URL.createObjectURL(photoBlob)); queueDraft(); }
       catch { photoBlob = null; toast('تعذّر قراءة الصورة. استخدم JPG أو PNG', 'err'); }
     };
 
@@ -428,7 +429,18 @@
     famRes.onclick = e => { const li = e.target.closest('[data-fid]'); if (li) linkFamily(li.dataset.fid); };
     renderFamily();
 
-    if (editId) $('#printEditBtn').onclick = () => { printRecord(editId); toast('تُطبع النسخة المحفوظة. احفظ تعديلاتك أولاً لتظهر في الطباعة'); };
+    form.addEventListener('input', () => { dirty = true; });
+    form.addEventListener('change', () => { dirty = true; });
+    form.addEventListener('click', e => { if (e.target.closest('#addSib, .rm, #unlinkFam, #famRes')) dirty = true; });
+    if (editId) $('#printEditBtn').onclick = () => {
+      if (dirty) { // لا طباعة قبل الحفظ حتى لا تخرج نسخة قديمة
+        toast('لديك تعديلات غير محفوظة. احفظ أولاً ثم اطبع', 'err');
+        const sb = $('#saveBtn'); sb.classList.add('attn'); setTimeout(() => sb.classList.remove('attn'), 2000);
+        sb.scrollIntoView({ block: 'center', behavior: 'smooth' });
+        return;
+      }
+      printRecord(editId);
+    };
 
     // تحميل سجل للتعديل
     if (editId) {
@@ -630,7 +642,7 @@
       const q = $('#search').value.trim().toLowerCase();
       const list = records.filter(r => !q || [r.full_name, r.orphan_code, r.family?.mother_name, r.family?.guardian, r.mobile].some(v => String(v ?? '').toLowerCase().includes(q)));
       $('#count').textContent = `${list.length} سجل`;
-      $('#rows').innerHTML = list.length ? list.map(r => `<tr>
+      $('#rows').innerHTML = list.length ? list.map(r => `<tr class="clk" data-open="${r.id}">
         <td>${esc(r.orphan_code)}</td><td><b>${esc(r.full_name)}</b></td>
         <td>${r.gender === 'male' ? 'ذكر' : r.gender === 'female' ? 'أنثى' : ''}</td><td>${esc(r.age)}</td>
         <td>${esc(r.family?.mother_name)}</td><td dir="ltr" style="text-align:end">${esc(r.mobile)}</td><td>${fmtDate(r.created_at)}</td>
@@ -644,6 +656,8 @@
     view.onclick = async e => {
       const p = e.target.closest('[data-print]');
       if (p) return printRecord(p.dataset.print);
+      const openRow = e.target.closest('tr[data-open]');
+      if (openRow && !e.target.closest('button, a, input')) { location.hash = '#/register?id=' + openRow.dataset.open; return; }
       const d = e.target.closest('[data-del]');
       if (d) {
         const r = records.find(x => x.id === d.dataset.del);

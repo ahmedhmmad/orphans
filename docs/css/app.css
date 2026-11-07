@@ -288,3 +288,7 @@ img.th { width: 40px; height: 48px; object-fit: cover; border-radius: 6px; displ
 table.list td input[type=checkbox] { width: 18px; min-height: 0; }
 
 .sib select.bad { border-color: var(--danger); box-shadow: 0 0 0 4px rgba(180, 35, 24, .12); }
+
+tr.clk { cursor: pointer; }
+.btn.attn { animation: attn .5s ease 3; box-shadow: 0 0 0 4px rgba(180, 35, 24, .35); }
+@keyframes attn { 50% { transform: scale(1.06); } }
