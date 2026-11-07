@@ -198,8 +198,8 @@
 
   const SECTIONS = [
     { n: 1, ar: 'البيانات الشخصية لليتيم', en: 'Orphan Personal Information', photo: true, fields: [
-      F('orphan_code', 'رقم الهوية (لليتيم)', 'ID Number'),
       F('full_name', 'الاسم الكامل', 'Full Name', { req: 1 }),
+      F('orphan_code', 'رقم الهوية (لليتيم)', 'ID Number'),
       F('gender', 'الجنس', 'Gender', { type: 'radio', options: GENDER, req: 1 }),
       F('birth_date', 'تاريخ الميلاد', 'Date of Birth', { type: 'date', req: 1 }),
       F('age', 'العمر', 'Age', { type: 'number', int: 1, min: 0, max: 30, req: 1 }),
