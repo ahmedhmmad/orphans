@@ -240,6 +240,7 @@
   const YN = [['true', 'نعم', 'Yes'], ['false', 'لا', 'No']];
   const MSTATUS = [['alive', 'على قيد الحياة', 'Alive'], ['deceased', 'متوفاة', 'Deceased']];
   const HOUSING = [['owned', 'ملك / Owned'], ['rented', 'إيجار / Rented'], ['temporary', 'مؤقت / Temporary'], ['shared', 'مشترك / Shared'], ['sponsored', 'مكفول / Sponsored']];
+  const GUARD_REL = ['الأم', 'الأب', 'الجد', 'الجدة', 'العم', 'العمة', 'الخال', 'الخالة', 'الأخ', 'الأخت', 'زوجة العم', 'قريب آخر'].map(x => [x, x]);
   const RELATIONS = ['أخ شقيق', 'أخت شقيقة', 'أخ غير شقيق', 'أخت غير شقيقة'];
   const F = (name, ar, en, o = {}) => ({ name, ar, en, ...o });
   const H = text => ({ heading: text });
@@ -291,7 +292,8 @@
     { n: 7, fam: 1, ar: 'الوضع المالي والمعيشي للأسرة', en: 'Family Financial & Living Situation', fields: [
       F('orphans_count', 'عدد الأيتام', 'Number of Orphans', { type: 'number', int: 1, req: 1 }),
       F('family_members', 'عدد أفراد الأسرة', 'Total Number of Family Members', { type: 'number', int: 1, req: 1 }),
-      F('guardian', 'اسم المعيل وصلة القرابة', 'Name of the Family Guardian & Relationship', { req: 1 }),
+      F('guardian', 'اسم المعيل (رباعي)', 'Name of the Family Guardian', { req: 1 }),
+      F('guardian_relation', 'صلة القرابة بالمعيل', 'Guardian Relationship', { type: 'select', options: GUARD_REL, req: 1 }),
       F('income_source', 'مصدر دخل الأسرة', 'Family Source of Income', { req: 1 }),
       F('monthly_income', 'متوسط دخل الأسرة الشهري (جنيه مصري)', 'Average Monthly Family Income (EGP)', { type: 'number', req: 1 }),
       F('other_support', 'هل تتلقى الأسرة مساعدات من جهات أخرى؟', 'Does the family receive support from other organizations?', { type: 'radio', options: YN, bool: 1, req: 1 }),
@@ -745,7 +747,7 @@
     mother_death_date: 'وفاة الأم', mother_death_cause: 'سبب وفاة الأم', siblings: 'الإخوة', has_illness: 'مرض/إعاقة', illness_details: 'تفاصيل المرض',
     war_injury: 'إصابة حرب', needs_treatment: 'علاج مستمر', treatment_cost: 'تكلفة العلاج', housing_type: 'نوع السكن', housing_address: 'عنوان السكن',
     household_members: 'المقيمون في السكن', monthly_rent: 'الإيجار الشهري', orphans_count: 'عدد الأيتام', family_members: 'عدد أفراد الأسرة',
-    guardian: 'المعيل', income_source: 'مصدر الدخل', monthly_income: 'متوسط الدخل', other_support: 'مساعدات أخرى', exp_rent: 'م. الإيجار',
+    guardian: 'المعيل', guardian_relation: 'صلة المعيل', income_source: 'مصدر الدخل', monthly_income: 'متوسط الدخل', other_support: 'مساعدات أخرى', exp_rent: 'م. الإيجار',
     exp_food: 'م. الطعام', exp_treatment: 'م. العلاج', exp_education: 'م. التعليم والمواصلات', exp_other: 'م. أخرى', exp_total: 'إجمالي المصروفات', created_at: 'تاريخ التسجيل',
   };
   const LABELS = { male: 'ذكر', female: 'أنثى', alive: 'على قيد الحياة', deceased: 'متوفاة', owned: 'ملك', rented: 'إيجار', temporary: 'مؤقت', shared: 'مشترك', sponsored: 'مكفول' };

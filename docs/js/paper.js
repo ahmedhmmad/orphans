@@ -93,6 +93,7 @@
         const registered = (mr.data || []).filter(m => m.id !== data.id).map(m => ({
           name: m.full_name, relation: m.gender === 'female' ? 'أخت شقيقة' : 'أخ شقيق', birth_date: m.birth_date, death_date: null,
         }));
+        fr.data.guardian = [fr.data.guardian, fr.data.guardian_relation].filter(Boolean).join(' - ');
         rec = { ...data, ...fr.data, id: data.id, created_at: data.created_at, siblings: [...registered, ...(fr.data.siblings || [])] };
       }
     }
