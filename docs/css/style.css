@@ -447,3 +447,7 @@ body.paper input, body.paper select, body.paper textarea {
 }
 body.paper .tbl td input, body.paper .tbl td select { font-size: 13px; }
 body.paper .expenses .total input { font-size: 15px; }
+
+/* صفحة ملحق الإخوة (عند وجود أكثر من 5) */
+.siblings.extra td.v { padding: 4px 8px; text-align: center; font-family: "Times New Roman", Times, serif; font-size: 13px; font-weight: 700; color: #000; height: 28px; }
+body.paper input.is-empty, body.paper select.is-empty { color: transparent !important; }

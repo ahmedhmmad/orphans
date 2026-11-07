@@ -317,7 +317,7 @@
     const sibs = $('#sibs');
     const renumber = () => $$('.sib', sibs).forEach((r, i) => ($('.no', r).textContent = i + 1));
     const addSib = (s = {}) => {
-      if ($$('.sib', sibs).length >= 5) return toast('الحد الأقصى 5 إخوة في الاستمارة المطبوعة');
+      if ($('.sib', sibs).length >= 20) return toast('الحد الأقصى 20 أخاً وأختاً');
       sibs.insertAdjacentHTML('beforeend', siblingRowHTML($$('.sib', sibs).length + 1, s));
     };
     $('#addSib').onclick = () => addSib();
@@ -391,7 +391,7 @@
         } else form.elements[f.name].value = v ?? '';
       });
       sibs.innerHTML = '';
-      const list = (rec.siblings || []).slice(0, 5);
+      const list = (rec.siblings || []).slice(0, 20);
       (list.length ? list : [{}]).forEach(s => addSib(s));
       applyDeps();
       calcTotal();
