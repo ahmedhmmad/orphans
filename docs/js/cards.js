@@ -11,7 +11,7 @@
     if (!ids.length) { $('#info').textContent = 'لم تُحدَّد سجلات.'; return; }
     const { data: { session } } = await sb.auth.getSession();
     if (!session) return (location.href = 'index.html');
-    const { data, error } = await sb.from('orphans').select('id, full_name, orphan_code, birth_date, photo_path').in('id', ids);
+    const { data, error } = await sb.from('orphans').select('id, full_name, orphan_code, birth_date, photo_path, family:families(guardian)').in('id', ids);
     if (error) { $('#info').textContent = 'تعذّر التحميل: ' + error.message; return; }
     const order = new Map(ids.map((id, i) => [id, i]));
     data.sort((a, b) => order.get(a.id) - order.get(b.id));
@@ -30,8 +30,11 @@
           <div class="photo">${urls[o.photo_path] ? `<img src="${urls[o.photo_path]}" alt="">` : '<svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8.5 9-8.5s9 3.5 9 8.5z"/></svg>'}</div>
           <div class="info">
             <div class="name">${esc(o.full_name)}</div>
-            <div class="row"><span>رقم الهوية</span><b dir="ltr" style="text-align:start">${esc(o.orphan_code || '—')}</b></div>
-            <div class="row"><span>تاريخ الميلاد</span><b>${fmt(o.birth_date)}</b></div>
+            <div class="pair">
+              <div class="row"><span>رقم الهوية</span><b dir="ltr" style="text-align:start">${esc(o.orphan_code || '—')}</b></div>
+              <div class="row"><span>تاريخ الميلاد</span><b>${fmt(o.birth_date)}</b></div>
+            </div>
+            <div class="row g"><span>المعيل</span><b>${esc(o.family?.guardian || '—')}</b></div>
           </div>
         </div>
         <div class="qr">${window.qrSvg(window.recordUrl(o.id))}</div>
