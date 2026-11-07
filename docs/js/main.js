@@ -317,7 +317,7 @@
     const sibs = $('#sibs');
     const renumber = () => $$('.sib', sibs).forEach((r, i) => ($('.no', r).textContent = i + 1));
     const addSib = (s = {}) => {
-      if ($('.sib', sibs).length >= 20) return toast('الحد الأقصى 20 أخاً وأختاً');
+      if ($$('.sib', sibs).length >= 20) return toast('الحد الأقصى 20 أخاً وأختاً');
       sibs.insertAdjacentHTML('beforeend', siblingRowHTML($$('.sib', sibs).length + 1, s));
     };
     $('#addSib').onclick = () => addSib();
