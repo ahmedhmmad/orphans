@@ -83,7 +83,20 @@
 
     const { data, error } = await sb.from('orphans').select('*').eq('id', id).single();
     if (error || !data) return document.body.insertAdjacentHTML('afterbegin', '<p style="padding:20px">تعذّر العثور على السجل.</p>');
-    fill(data);
+    let rec = data;
+    if (data.family_id) { // بيانات العائلة المشتركة + الإخوة المسجلون تلقائياً
+      const [fr, mr] = await Promise.all([
+        sb.from('families').select('*').eq('id', data.family_id).maybeSingle(),
+        sb.rpc('family_members', { fid: data.family_id }),
+      ]);
+      if (fr.data) {
+        const registered = (mr.data || []).filter(m => m.id !== data.id).map(m => ({
+          name: m.full_name, relation: m.gender === 'female' ? 'أخت شقيقة' : 'أخ شقيق', birth_date: m.birth_date, death_date: null,
+        }));
+        rec = { ...data, ...fr.data, id: data.id, created_at: data.created_at, siblings: [...registered, ...(fr.data.siblings || [])] };
+      }
+    }
+    fill(rec);
     document.title = `${data.full_name} | استمارة يتيم`;
 
     if (data.photo_path) {

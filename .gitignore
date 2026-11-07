@@ -3,3 +3,6 @@ WhatsApp Image *.jpeg
 node_modules/
 .DS_Store
 Thumbs.db
+
+# بيانات حساسة للأيتام - لا ترفع أبداً
+private/

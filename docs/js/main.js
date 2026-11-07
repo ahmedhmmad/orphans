@@ -210,14 +210,14 @@
       F('sponsorship_end', 'تاريخ انتهاء الكفالة', 'Sponsorship End Date', { type: 'date' }),
       F('address', 'عنوان السكن الحالي', 'Current Address', { type: 'textarea', span: 1, req: 1 }),
     ] },
-    { n: 2, ar: 'بيانات الأب', en: "Father's Information", fields: [
+    { n: 2, fam: 1, ar: 'بيانات الأب', en: "Father's Information", fields: [
       F('father_name', 'اسم الأب', "Father's Name", { req: 1 }),
       F('father_birth_date', 'تاريخ الميلاد', 'Date of Birth', { type: 'date' }),
       F('father_death_date', 'تاريخ الوفاة', 'Date of Death', { type: 'date', req: 1 }),
       F('father_death_cause', 'سبب الوفاة', 'Cause of Death', { req: 1 }),
       F('father_death_place', 'مكان الوفاة', 'Place of Death'),
     ] },
-    { n: 3, ar: 'بيانات الأم', en: "Mother's Information", fields: [
+    { n: 3, fam: 1, ar: 'بيانات الأم', en: "Mother's Information", fields: [
       F('mother_name', 'اسم الأم', "Mother's Name", { req: 1 }),
       F('mother_status', 'الحالة', 'Status', { type: 'radio', options: MSTATUS, req: 1 }),
       F('mother_birth_date', 'تاريخ الميلاد', 'Date of Birth', { type: 'date' }),
@@ -226,7 +226,7 @@
       F('mother_death_date', 'تاريخ الوفاة', 'Date of Death', { type: 'date', showIf: ['mother_status', 'deceased'] }),
       F('mother_death_cause', 'سبب الوفاة', 'Cause of Death', { showIf: ['mother_status', 'deceased'] }),
     ] },
-    { n: 4, ar: 'بيانات الإخوة والأخوات', en: 'Siblings Information', siblings: true, fields: [] },
+    { n: 4, fam: 1, ar: 'بيانات الإخوة والأخوات', en: 'Siblings Information', siblings: true, fields: [] },
     { n: 5, ar: 'الحالة الصحية', en: 'Health Status', fields: [
       F('has_illness', 'هل يعاني اليتيم من مرض أو إعاقة؟', 'Does the orphan suffer from an illness or disability?', { type: 'radio', options: YN, bool: 1, req: 1, span: 1 }),
       F('illness_details', 'نوع المرض أو الإصابة وتفاصيلها', 'Type of Illness or Injury & Details', { type: 'textarea', span: 1, showIf: ['has_illness', 'true'] }),
@@ -234,13 +234,13 @@
       F('needs_treatment', 'هل يحتاج إلى علاج مستمر؟', 'Does the orphan need continuous treatment?', { type: 'radio', options: YN, bool: 1, showIf: ['has_illness', 'true'] }),
       F('treatment_cost', 'المصروف الشهري للعلاج والأدوية (جنيه مصري)', 'Monthly Cost of Treatment & Medication (EGP)', { type: 'number', showIf: ['has_illness', 'true'] }),
     ] },
-    { n: 6, ar: 'بيانات السكن', en: 'Housing Information', fields: [
+    { n: 6, fam: 1, ar: 'بيانات السكن', en: 'Housing Information', fields: [
       F('housing_type', 'نوع السكن', 'Type of Housing', { type: 'select', options: HOUSING, req: 1 }),
       F('household_members', 'عدد أفراد الأسرة المقيمين في السكن', 'Number of Family Members Living in the Residence', { type: 'number', int: 1, req: 1 }),
       F('housing_address', 'عنوان السكن بالتفصيل', 'Full Address of Residence', { type: 'textarea', span: 1, req: 1 }),
       F('monthly_rent', 'قيمة الإيجار الشهري (جنيه مصري)', 'Monthly Rent Amount (EGP)', { type: 'number' }),
     ] },
-    { n: 7, ar: 'الوضع المالي والمعيشي للأسرة', en: 'Family Financial & Living Situation', fields: [
+    { n: 7, fam: 1, ar: 'الوضع المالي والمعيشي للأسرة', en: 'Family Financial & Living Situation', fields: [
       F('orphans_count', 'عدد الأيتام', 'Number of Orphans', { type: 'number', int: 1, req: 1 }),
       F('family_members', 'عدد أفراد الأسرة', 'Total Number of Family Members', { type: 'number', int: 1, req: 1 }),
       F('guardian', 'اسم المعيل وصلة القرابة', 'Name of the Family Guardian & Relationship', { req: 1 }),
@@ -257,6 +257,18 @@
     ] },
   ];
   const ALL_FIELDS = SECTIONS.flatMap(s => s.fields).filter(f => f.name);
+  // حقول العائلة المشتركة (تُحفظ في جدول families) + قائمة الإخوة غير المسجلين
+  const FAMILY_NAMES = new Set([...SECTIONS.filter(x => x.fam).flatMap(x => x.fields).filter(x => x.name).map(x => x.name), 'siblings']);
+  const split = all => {
+    const orphan = {}, family = {};
+    for (const [k, v] of Object.entries(all)) (FAMILY_NAMES.has(k) ? family : orphan)[k] = v;
+    return { orphan, family };
+  };
+  const FAM_CARD = `<section class="sec" id="famSec"><div class="sec-h"><div class="sec-n">🔗</div><div><h3>ربط العائلة</h3><small>Family Link</small></div></div>
+    <div class="sec-b"><div class="fld span2"><div id="famChip" class="banner"></div></div>
+    <div class="fld span2"><label for="famQ">ابحث عن أخ أو أخت مسجَّل لربط العائلة (اسم اليتيم أو رقم الهوية أو اسم الأم أو المعيل)<small>Search</small></label>
+      <input id="famQ" type="search" autocomplete="off" placeholder="اكتب 3 أحرف على الأقل…"><ul id="famRes" class="fam-res"></ul></div>
+    <p class="note">عند الربط تُعبَّأ بيانات الأب والأم والسكن والمعيل والدخل والمصروفات من العائلة، وتكون <b>مشتركة</b>: أي تعديل عليها يظهر عند كل أيتام العائلة. الحالة الصحية تبقى خاصة بكل يتيم.</p></div></section>`;
 
   function fieldHTML(f) {
     if (f.heading) return `<h4 class="sub-h">${f.heading}</h4>`;
@@ -296,13 +308,13 @@
       <div id="draftBanner" class="banner" hidden></div>
       <form id="regForm" class="reg" novalidate autocomplete="off">
         ${SECTIONS.map(s => `
-          <section class="sec"><div class="sec-h"><div class="sec-n">${s.n}</div><div><h3>${s.ar}</h3><small>${s.en}</small></div></div>
+          <section class="sec"><div class="sec-h"><div class="sec-n">${s.n}</div><div><h3>${s.ar}</h3><small>${s.en}</small></div>${s.fam ? '<span class="tag fam">مشتركة مع العائلة</span>' : ''}</div>
           <div class="sec-b">
             ${s.photo ? `<div class="photo-up"><div class="ph" id="phBox" title="اختيار صورة"><img id="phImg" alt="" hidden><svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8.5 9-8.5s9 3.5 9 8.5z"/></svg></div>
               <div class="tx"><button type="button" class="btn ghost sm" id="phBtn">اختيار / التقاط صورة اليتيم</button><small>أي مقاس، وتُصغَّر تلقائياً</small><input type="file" id="phInput" accept="image/*" hidden></div></div>` : ''}
-            ${s.siblings ? `<div class="sibs" id="sibs"></div><div class="fld span2"><button type="button" class="btn ghost sm" id="addSib" style="align-self:flex-start">+ إضافة أخ / أخت</button></div>` : ''}
+            ${s.siblings ? `<div id="famMembers" class="members" hidden></div><div class="fld span2"><b>إخوة آخرون غير مسجَّلين في النظام:</b></div><div class="sibs" id="sibs"></div><div class="fld span2"><button type="button" class="btn ghost sm" id="addSib" style="align-self:flex-start">+ إضافة أخ / أخت</button></div>` : ''}
             ${s.fields.map(fieldHTML).join('')}
-          </div></section>`).join('')}
+          </div></section>${s.n === 1 ? FAM_CARD : ''}`).join('')}
         <div class="savebar"><p id="regMsg" class="msg"></p><small id="draftNote"></small>
           <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات وطباعة' : 'حفظ وطباعة الاستمارة'}</button></div></div>
       </form>`;
@@ -313,6 +325,8 @@
     let photoBlob = null;
     let existingPhoto = null;
     let record = null;
+    let familyId = null;
+    let members = [];
 
     // الإخوة
     const sibs = $('#sibs');
@@ -367,6 +381,53 @@
       catch { photoBlob = null; toast('تعذّر قراءة الصورة. استخدم JPG أو PNG', 'err'); }
     };
 
+    // ===== ربط العائلة =====
+    const famChip = $('#famChip'), famRes = $('#famRes'), famQ = $('#famQ'), famMembers = $('#famMembers');
+    function renderFamily() {
+      famChip.className = 'banner' + (familyId ? ' ok' : '');
+      famChip.innerHTML = familyId
+        ? `<span>🔗 مرتبط بعائلة${members.length ? ' — الأيتام: ' + members.map(m => esc(m.full_name)).join('، ') : ''}</span><button type="button" class="btn link red" id="unlinkFam">إلغاء الربط</button>`
+        : '<span>عائلة جديدة — ابحث أدناه إن كان لليتيم أخ أو أخت مسجَّل في النظام لربطهما</span>';
+      const others = members.filter(m => m.id !== editId);
+      famMembers.hidden = !others.length;
+      famMembers.innerHTML = others.length ? '<small>إخوة مسجَّلون في النظام (يظهرون تلقائياً في الاستمارة المطبوعة):</small>' + others.map(m => `<span class="chip">${esc(m.full_name)}</span>`).join('') : '';
+      const u = $('#unlinkFam');
+      if (u) u.onclick = () => { familyId = null; members = []; renderFamily(); queueDraft(); toast('أُلغي الربط: ستُحفظ البيانات الحالية كعائلة جديدة'); };
+    }
+    async function loadMembers() {
+      if (!familyId) { members = []; return; }
+      const { data } = await sb.rpc('family_members', { fid: familyId });
+      members = data || [];
+    }
+    async function linkFamily(fid) {
+      const { data, error } = await sb.rpc('get_family', { fid });
+      const fam = Array.isArray(data) ? data[0] : data;
+      if (error || !fam) return toast('تعذّر تحميل بيانات العائلة', 'err');
+      familyId = fid;
+      fill({ ...collect(), ...fam });
+      await loadMembers();
+      renderFamily();
+      famRes.innerHTML = '';
+      famQ.value = '';
+      toast('تم ربط اليتيم بالعائلة وتعبئة بياناتها المشتركة', 'ok');
+      queueDraft();
+    }
+    let searchTimer;
+    famQ.oninput = () => {
+      clearTimeout(searchTimer);
+      const q = famQ.value.trim();
+      if (q.length < 3) { famRes.innerHTML = q ? '<li class="hint">اكتب 3 أحرف على الأقل</li>' : ''; return; }
+      searchTimer = setTimeout(async () => {
+        const { data, error } = await sb.rpc('search_families', { q });
+        if (error) { famRes.innerHTML = '<li class="hint">تعذّر البحث. تأكد من تشغيل migration_v5.sql</li>'; return; }
+        const seen = new Set();
+        const rows = (data || []).filter(r => (seen.has(r.family_id) ? false : seen.add(r.family_id)) && r.family_id !== familyId);
+        famRes.innerHTML = rows.map(r => `<li data-fid="${r.family_id}"><b>${esc(r.orphan_name)}</b> <small>${esc(r.orphan_code || '')} — الأم: ${esc(r.mother_name || '—')} — المعيل: ${esc(r.guardian || '—')} — ${r.members} يتيم</small></li>`).join('') || '<li class="hint">لا توجد نتائج</li>';
+      }, 350);
+    };
+    famRes.onclick = e => { const li = e.target.closest('[data-fid]'); if (li) linkFamily(li.dataset.fid); };
+    renderFamily();
+
     // تحميل سجل للتعديل
     if (editId) {
       setMsg('جارِ تحميل السجل…');
@@ -374,7 +435,14 @@
       if (error || !data) { setMsg('تعذّر العثور على السجل', 'err'); $('#saveBtn').disabled = true; }
       else {
         record = data;
-        fill(data);
+        let fam = {};
+        if (data.family_id) {
+          const { data: fr } = await sb.from('families').select('*').eq('id', data.family_id).maybeSingle();
+          if (fr) { fam = fr; familyId = fr.id; }
+        }
+        fill({ ...data, ...fam });
+        await loadMembers();
+        renderFamily();
         setMsg('');
         if (data.photo_path) {
           existingPhoto = data.photo_path;
@@ -452,7 +520,7 @@
       const d = collect();
       if (!hasContent(d)) { if (manual) toast('لا توجد بيانات لحفظها بعد'); return; }
       try {
-        localStorage.setItem(DKEY, JSON.stringify({ d, photo: photoData, t: Date.now() }));
+        localStorage.setItem(DKEY, JSON.stringify({ d, photo: photoData, t: Date.now(), fam: familyId }));
         $('#draftNote').textContent = 'حُفظت مسودة ' + new Date().toLocaleTimeString('ar-EG', { hour: '2-digit', minute: '2-digit' });
         if (manual) toast('تم حفظ المسودة مؤقتاً', 'ok');
       } catch { if (manual) toast('تعذّر حفظ المسودة', 'err'); }
@@ -466,8 +534,9 @@
       try {
         const raw = localStorage.getItem(DKEY);
         if (raw) {
-          const { d, photo, t } = JSON.parse(raw);
+          const { d, photo, t, fam } = JSON.parse(raw);
           fill(d);
+          if (fam) { familyId = fam; loadMembers().then(renderFamily); }
           if (photo) fetch(photo).then(r => r.blob()).then(b => { photoData = photo; photoBlob = b; showPhoto(photo); });
           const bn = $('#draftBanner');
           bn.hidden = false;
@@ -484,7 +553,15 @@
       btn.disabled = true;
       setMsg('جارِ الحفظ…');
       try {
-        const data = collect();
+        const { orphan: data, family } = split(collect());
+        const wasLinked = !!familyId;
+        let fid = familyId;
+        if (!wasLinked) {
+          fid = crypto.randomUUID();
+          const { error: fe } = await sb.from('families').insert({ ...family, id: fid });
+          if (fe) throw fe;
+        }
+        data.family_id = fid;
         const id = editId || crypto.randomUUID();
         if (photoBlob) {
           const path = `${id}.jpg`;
@@ -499,6 +576,10 @@
           data.id = id;
           const { error } = await sb.from('orphans').insert(data);
           if (error) throw error;
+        }
+        if (wasLinked) {
+          const { error: fe2 } = await sb.from('families').update(family).eq('id', fid);
+          if (fe2) throw fe2;
         }
         clearDraft();
         showSuccess(id, data.full_name, !!editId);
@@ -531,7 +612,7 @@
         <tbody id="rows"><tr><td colspan="9" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
 
     const [recs, profs] = await Promise.all([
-      sb.from('orphans').select('id, orphan_code, full_name, gender, age, mother_name, mobile, created_at, created_by').order('created_at', { ascending: false }).limit(2000),
+      sb.from('orphans').select('id, orphan_code, full_name, gender, age, mobile, created_at, created_by, family_id, family:families(mother_name, guardian)').order('created_at', { ascending: false }).limit(2000),
       admin ? sb.from('profiles').select('id, full_name') : Promise.resolve({ data: [] }),
     ]);
     if (recs.error) return ($('#rows').innerHTML = `<tr><td colspan="9" class="msg err">${esc(recs.error.message)}</td></tr>`);
@@ -540,12 +621,12 @@
 
     const render = () => {
       const q = $('#search').value.trim().toLowerCase();
-      const list = records.filter(r => !q || [r.full_name, r.orphan_code, r.mother_name, r.mobile].some(v => String(v ?? '').toLowerCase().includes(q)));
+      const list = records.filter(r => !q || [r.full_name, r.orphan_code, r.family?.mother_name, r.family?.guardian, r.mobile].some(v => String(v ?? '').toLowerCase().includes(q)));
       $('#count').textContent = `${list.length} سجل`;
       $('#rows').innerHTML = list.length ? list.map(r => `<tr>
         <td>${esc(r.orphan_code)}</td><td><b>${esc(r.full_name)}</b></td>
         <td>${r.gender === 'male' ? 'ذكر' : r.gender === 'female' ? 'أنثى' : ''}</td><td>${esc(r.age)}</td>
-        <td>${esc(r.mother_name)}</td><td dir="ltr" style="text-align:end">${esc(r.mobile)}</td><td>${fmtDate(r.created_at)}</td>
+        <td>${esc(r.family?.mother_name)}</td><td dir="ltr" style="text-align:end">${esc(r.mobile)}</td><td>${fmtDate(r.created_at)}</td>
         ${admin ? `<td>${esc(names[r.created_by] || '')}</td>` : ''}
         <td class="act"><button class="btn link" data-print="${r.id}">طباعة</button><a class="btn link" href="#/register?id=${r.id}">تعديل</a>${admin ? `<button class="btn link red" data-del="${r.id}">حذف</button>` : ''}</td></tr>`).join('')
         : `<tr><td colspan="9" class="empty">لا توجد سجلات.</td></tr>`;
@@ -564,6 +645,10 @@
         if (row?.photo_path) await sb.storage.from(PHOTO_BUCKET).remove([row.photo_path]);
         const { error } = await sb.from('orphans').delete().eq('id', r.id);
         if (error) return toast('تعذّر الحذف: ' + error.message, 'err');
+        if (r.family_id) { // لا تبقى عائلة بلا أيتام
+          const { count } = await sb.from('orphans').select('id', { count: 'exact', head: true }).eq('family_id', r.family_id);
+          if (!count) await sb.from('families').delete().eq('id', r.family_id);
+        }
         records.splice(records.indexOf(r), 1);
         render();
         toast('تم الحذف', 'ok');
@@ -593,10 +678,10 @@
     return '"' + String(v).replace(/"/g, '""') + '"';
   };
   async function exportCSV() {
-    const { data, error } = await sb.from('orphans').select('*').order('created_at');
+    const { data, error } = await sb.from('orphans').select('*, family:families(*)').order('created_at');
     if (error) return toast('تعذّر التصدير: ' + error.message, 'err');
     const keys = Object.keys(HEADERS);
-    const csv = [keys.map(k => cell(HEADERS[k])).join(',')].concat(data.map(r => keys.map(k => cell(r[k])).join(','))).join('\r\n');
+    const csv = [keys.map(k => cell(HEADERS[k])).join(',')].concat(data.map(r => keys.map(k => cell({ ...r, ...(r.family || {}), created_at: r.created_at }[k])).join(','))).join('\r\n');
     const a = document.createElement('a');
     a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
     a.download = `orphans-${new Date().toISOString().slice(0, 10)}.csv`;

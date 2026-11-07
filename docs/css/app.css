@@ -271,3 +271,13 @@ table.list td.act { white-space: nowrap; text-align: end; }
 
 .banner { display: flex; align-items: center; justify-content: space-between; gap: 10px; flex-wrap: wrap; background: #fff8e1; border: 1px solid #f5d77a; color: #7a5b00; border-radius: 12px; padding: 10px 16px; margin-bottom: 14px; font-weight: 700; }
 #draftNote { color: var(--muted); font-weight: 700; }
+
+.banner.ok { background: #e7f6ec; border-color: #9ad6b0; color: var(--ok); }
+.tag.fam { margin-inline-start: auto; background: #e8f0ff; }
+.note { grid-column: 1 / -1; margin: 0; color: var(--muted); font-size: 13px; }
+.members { grid-column: 1 / -1; display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
+.chip { background: var(--soft); border: 1px solid var(--line); border-radius: 99px; padding: 3px 12px; font-weight: 800; color: var(--navy); }
+.fam-res { list-style: none; margin: 6px 0 0; padding: 0; display: flex; flex-direction: column; gap: 6px; }
+.fam-res li { background: #fff; border: 1.5px solid var(--line); border-radius: 11px; padding: 9px 12px; cursor: pointer; }
+.fam-res li[data-fid]:hover { border-color: var(--navy-2); background: var(--soft); }
+.fam-res li.hint { cursor: default; color: var(--muted); border-style: dashed; }
