@@ -97,6 +97,7 @@
       }
     }
     fill(rec);
+    $$('.qr-slot').forEach(el => { el.innerHTML = window.qrSvg(window.recordUrl(data.id)) + '<small>امسح للوصول للسجل</small>'; });
     document.title = `${data.full_name} | استمارة يتيم`;
 
     if (data.photo_path) {

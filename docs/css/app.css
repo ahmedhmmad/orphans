@@ -292,3 +292,6 @@ table.list td input[type=checkbox] { width: 18px; min-height: 0; }
 tr.clk { cursor: pointer; }
 .btn.attn { animation: attn .5s ease 3; box-shadow: 0 0 0 4px rgba(180, 35, 24, .35); }
 @keyframes attn { 50% { transform: scale(1.06); } }
+
+#scanDialog { width: min(92vw, 460px); }
+table.list th input[type=checkbox] { width: 18px; min-height: 0; }

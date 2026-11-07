@@ -32,6 +32,53 @@
     if (e.origin === location.origin && e.data?.type === 'orphan-printed') $$('.print-frame').forEach(f => f.remove());
   });
 
+  /* ===== مسح QR بالكاميرا: يفتح سجل اليتيم ===== */
+  const loadScript = src => new Promise((res, rej) => { const s = document.createElement('script'); s.src = src; s.onload = res; s.onerror = rej; document.head.appendChild(s); });
+  async function openScanner() {
+    const dlg = $('#scanDialog'), video = $('#scanVideo'), msg = $('#scanMsg');
+    msg.textContent = 'وجّه الكاميرا نحو رمز QR على الاستمارة أو البطاقة';
+    dlg.showModal();
+    let stream = null, stop = false;
+    const release = () => { stop = true; stream?.getTracks().forEach(t => t.stop()); };
+    const close = () => { release(); if (dlg.open) dlg.close(); };
+    $('#scanClose').onclick = close;
+    dlg.onclose = release;
+    const handle = text => {
+      const m = String(text).match(/id=([0-9a-f-]{36})/i);
+      if (!m) return false;
+      close();
+      location.hash = '#/register?id=' + m[1];
+      return true;
+    };
+    try { stream = await navigator.mediaDevices.getUserMedia({ video: { facingMode: 'environment' } }); }
+    catch { msg.textContent = 'تعذّر تشغيل الكاميرا. اسمح للموقع باستخدامها، أو امسح الرمز بكاميرا الهاتف العادية.'; return; }
+    video.srcObject = stream;
+    await video.play();
+    const det = 'BarcodeDetector' in window ? new BarcodeDetector({ formats: ['qr_code'] }) : null;
+    if (!det && !window.jsQR) {
+      try { await loadScript('https://cdn.jsdelivr.net/npm/jsqr@1.4.0/dist/jsQR.js'); }
+      catch { msg.textContent = 'تعذّر تحميل قارئ QR.'; return; }
+    }
+    const cv = document.createElement('canvas'), cx = cv.getContext('2d', { willReadFrequently: true });
+    const tick = async () => {
+      if (stop) return;
+      if (video.readyState >= 2 && video.videoWidth) {
+        try {
+          if (det) { const r = await det.detect(video); if (r[0] && handle(r[0].rawValue)) return; }
+          else {
+            cv.width = video.videoWidth; cv.height = video.videoHeight;
+            cx.drawImage(video, 0, 0);
+            const img = cx.getImageData(0, 0, cv.width, cv.height);
+            const r = window.jsQR(img.data, img.width, img.height);
+            if (r && handle(r.data)) return;
+          }
+        } catch { /* ignore frame errors */ }
+      }
+      setTimeout(tick, 200);
+    };
+    tick();
+  }
+
   async function resizeImage(file, max = 900) {
     const url = URL.createObjectURL(file);
     try {
@@ -175,7 +222,7 @@
         <div class="stat"><div class="lbl">هذا الشهر</div><div class="num">${m.count ?? 0}</div></div>
         <div class="stat"><div class="lbl">الإجمالي</div><div class="num">${all.count ?? 0}</div></div>
       </div>
-      <div class="cta"><a class="btn lg" href="#/register">+ تسجيل يتيم جديد</a><a class="btn ghost lg" href="#/records">عرض السجلات</a></div>
+      <div class="cta"><a class="btn lg" href="#/register">+ تسجيل يتيم جديد</a><a class="btn ghost lg" href="#/records">عرض السجلات</a><button class="btn ghost lg" id="homeScan" type="button">📷 مسح QR</button></div>
       <div class="cols ${admin ? 'two' : ''}">
         <div class="card"><h3>آخر التسجيلات</h3>
           ${rows ? `<div class="table-wrap"><table class="list"><thead><tr><th>رقم الهوية</th><th>الاسم</th><th>التاريخ</th><th></th></tr></thead><tbody>${rows}</tbody></table></div>` : '<p class="empty">لا توجد تسجيلات بعد.</p>'}
@@ -185,6 +232,7 @@
         </div>` : ''}
       </div>`;
     view.onclick = e => { const b = e.target.closest('[data-print]'); if (b) printRecord(b.dataset.print); };
+    $('#homeScan').onclick = openScanner;
   }
 
   /* ============================== نموذج التسجيل ============================== */
@@ -316,7 +364,7 @@
             ${s.fields.map(fieldHTML).join('')}
           </div></section>${s.n === 1 ? FAM_CARD : ''}`).join('')}
         <div class="savebar"><p id="regMsg" class="msg"></p><small id="draftNote"></small>
-          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '<button type="button" class="btn ghost" id="printEditBtn">🖨 طباعة</button>' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات' : 'حفظ'}</button></div></div>
+          <div class="btns"><a class="btn ghost" href="#/records">إلغاء</a>${editId ? '<button type="button" class="btn ghost" id="printEditBtn">🖨 طباعة</button><a class="btn ghost" href="cards.html?ids=' + editId + '" target="_blank" rel="noopener">🪪 بطاقة</a>' : '<button type="button" class="btn ghost" id="draftBtn">💾 حفظ مؤقت</button>'}<button type="submit" class="btn lg" id="saveBtn">${editId ? 'حفظ التعديلات' : 'حفظ'}</button></div></div>
       </form>`;
 
     const form = $('#regForm');
@@ -624,34 +672,45 @@
   async function recordsView() {
     const admin = me.role === 'admin';
     view.innerHTML = `<div class="page-head"><div><h2>السجلات</h2><p>${admin ? 'كل الأيتام المسجَّلين' : 'السجلات التي أدخلتها أنت'}</p></div>
-      <div class="cta" style="margin:0"><a class="btn" href="#/register">+ تسجيل جديد</a>${admin ? '<button class="btn ghost" id="exportBtn">تصدير Excel (CSV)</button>' : ''}</div></div>
+      <div class="cta" style="margin:0"><a class="btn" href="#/register">+ تسجيل جديد</a><button class="btn ghost" id="scanBtn" type="button">📷 مسح QR</button><button class="btn ghost" id="cardsBtn" type="button" disabled>🪪 بطاقات المحدد</button>${admin ? '<button class="btn ghost" id="exportBtn">تصدير Excel (CSV)</button>' : ''}</div></div>
       <div class="toolbar"><input id="search" type="search" placeholder="بحث بالاسم أو رقم الهوية أو اسم الأم أو الهاتف…"><span class="count" id="count"></span></div>
       <div class="card" style="padding:0"><div class="table-wrap"><table class="list"><thead><tr>
-        <th>رقم الهوية</th><th>الاسم الكامل</th><th>الجنس</th><th>العمر</th><th>اسم الأم</th><th>الهاتف</th><th>التسجيل</th>${admin ? '<th>المسجِّل</th>' : ''}<th></th></tr></thead>
-        <tbody id="rows"><tr><td colspan="9" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
+        <th><input type="checkbox" id="selAll" title="تحديد الكل"></th><th>رقم الهوية</th><th>الاسم الكامل</th><th>الجنس</th><th>العمر</th><th>اسم الأم</th><th>الهاتف</th><th>التسجيل</th>${admin ? '<th>المسجِّل</th>' : ''}<th></th></tr></thead>
+        <tbody id="rows"><tr><td colspan="10" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>`;
 
     const [recs, profs] = await Promise.all([
       sb.from('orphans').select('id, orphan_code, full_name, gender, age, mobile, created_at, created_by, family_id, family:families(mother_name, guardian)').order('created_at', { ascending: false }).limit(2000),
       admin ? sb.from('profiles').select('id, full_name') : Promise.resolve({ data: [] }),
     ]);
-    if (recs.error) return ($('#rows').innerHTML = `<tr><td colspan="9" class="msg err">${esc(recs.error.message)}</td></tr>`);
+    if (recs.error) return ($('#rows').innerHTML = `<tr><td colspan="10" class="msg err">${esc(recs.error.message)}</td></tr>`);
     const names = Object.fromEntries((profs.data || []).map(p => [p.id, p.full_name]));
     const records = recs.data;
+    const sel = new Set();
 
     const render = () => {
       const q = $('#search').value.trim().toLowerCase();
+      const scanned = q.match(/id=([0-9a-f-]{36})/); // لصق رابط QR في البحث
+      if (scanned) { location.hash = '#/register?id=' + scanned[1]; return; }
       const list = records.filter(r => !q || [r.full_name, r.orphan_code, r.family?.mother_name, r.family?.guardian, r.mobile].some(v => String(v ?? '').toLowerCase().includes(q)));
       $('#count').textContent = `${list.length} سجل`;
-      $('#rows').innerHTML = list.length ? list.map(r => `<tr class="clk" data-open="${r.id}">
+      $('#rows').innerHTML = list.length ? list.map(r => `<tr class="clk" data-open="${r.id}"><td><input type="checkbox" data-sel="${r.id}" ${sel.has(r.id) ? 'checked' : ''}></td>
         <td>${esc(r.orphan_code)}</td><td><b>${esc(r.full_name)}</b></td>
         <td>${r.gender === 'male' ? 'ذكر' : r.gender === 'female' ? 'أنثى' : ''}</td><td>${esc(r.age)}</td>
         <td>${esc(r.family?.mother_name)}</td><td dir="ltr" style="text-align:end">${esc(r.mobile)}</td><td>${fmtDate(r.created_at)}</td>
         ${admin ? `<td>${esc(names[r.created_by] || '')}</td>` : ''}
-        <td class="act"><button class="btn link" data-print="${r.id}">طباعة</button><a class="btn link" href="#/register?id=${r.id}">تعديل</a>${admin ? `<button class="btn link red" data-del="${r.id}">حذف</button>` : ''}</td></tr>`).join('')
-        : `<tr><td colspan="9" class="empty">لا توجد سجلات.</td></tr>`;
+        <td class="act"><button class="btn link" data-print="${r.id}">طباعة</button><a class="btn link" href="#/register?id=${r.id}">تعديل</a><a class="btn link" href="cards.html?ids=${r.id}" target="_blank" rel="noopener">بطاقة</a>${admin ? `<button class="btn link red" data-del="${r.id}">حذف</button>` : ''}</td></tr>`).join('')
+        : `<tr><td colspan="10" class="empty">لا توجد سجلات.</td></tr>`;
     };
     render();
     $('#search').oninput = render;
+    const syncSel = () => { const b = $('#cardsBtn'); b.disabled = !sel.size; b.textContent = sel.size ? `🪪 بطاقات (${sel.size})` : '🪪 بطاقات المحدد'; };
+    view.onchange = e => {
+      const c = e.target.closest('[data-sel]');
+      if (c) { c.checked ? sel.add(c.dataset.sel) : sel.delete(c.dataset.sel); syncSel(); }
+      if (e.target.id === 'selAll') { $$('[data-sel]').forEach(x => { x.checked = e.target.checked; e.target.checked ? sel.add(x.dataset.sel) : sel.delete(x.dataset.sel); }); syncSel(); }
+    };
+    $('#scanBtn').onclick = openScanner;
+    $('#cardsBtn').onclick = () => window.open('cards.html?ids=' + [...sel].join(','), '_blank');
 
     view.onclick = async e => {
       const p = e.target.closest('[data-print]');
