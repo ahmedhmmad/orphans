@@ -21,11 +21,12 @@
       <td><input type="date" name="sib_death_date_${i}" readonly></td></tr>`);
   }
 
+  initDates(form); // تواريخ يوم/شهر/سنة
   // كل الحقول للقراءة فقط
   $$('input:not([type=radio]):not([type=file]), textarea', form).forEach(el => (el.readOnly = true));
   if (inFrame) $('#paperBar').hidden = true;
 
-  const markEmpty = () => $$('input[type="date"], select', form).forEach(el => el.classList.toggle('is-empty', !el.value));
+  const markEmpty = () => $$('input[data-date], select', form).forEach(el => el.classList.toggle('is-empty', !el.value));
 
   function fill(rec) {
     for (const el of form.elements) {

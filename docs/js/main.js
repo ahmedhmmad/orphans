@@ -370,6 +370,7 @@
       </form>`;
 
     const form = $('#regForm');
+    initDates(form);
     const msg = $('#regMsg');
     const setMsg = (t, k = '') => { msg.textContent = t; msg.className = 'msg ' + k; };
     let photoBlob = null;
@@ -385,6 +386,7 @@
     const addSib = (s = {}) => {
       if ($$('.sib', sibs).length >= 20) return toast('الحد الأقصى 20 أخاً وأختاً');
       sibs.insertAdjacentHTML('beforeend', siblingRowHTML($$('.sib', sibs).length + 1, s));
+      initDates(sibs);
     };
     $('#addSib').onclick = () => addSib();
     sibs.onclick = e => { if (e.target.closest('.rm')) { e.target.closest('.sib').remove(); renumber(); } };
@@ -560,6 +562,7 @@
         const val = t === 'radio' ? el.value : el.value.trim();
         let bad = f.req && !val;
         if (!bad && val && f.phone && !/^\+?[0-9 ]{8,16}$/.test(val)) bad = true;
+        if (!bad && t === 'date' && el.dataset.bad === '1') bad = true;
         if (!bad && val && t === 'number' && (isNaN(Number(val)) || Number(val) < (f.min ?? 0) || (f.max != null && Number(val) > f.max))) bad = true;
         if (bad) { wrap.classList.add('invalid'); first ??= wrap; }
       });
@@ -568,6 +571,7 @@
         const rel = $('[data-s=relation]', r);
         rel.classList.remove('bad');
         if ($('[data-s=name]', r).value.trim() && !rel.value) { rel.classList.add('bad'); first ??= r; }
+        $$('input[data-date]', r).forEach(di => { if (di.dataset.bad === '1') { di.classList.add('bad-date'); first ??= r; } });
       });
       if (first) {
         first.scrollIntoView({ behavior: 'smooth', block: 'center' });
@@ -756,6 +760,8 @@
     if (v === true) v = 'نعم';
     else if (v === false) v = 'لا';
     else if (Array.isArray(v)) v = v.map(s => [s.name, s.relation, s.birth_date, s.death_date].filter(Boolean).join(' - ')).join(' | ');
+    else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}T/.test(v)) { const dt = new Date(v); v = dt.toLocaleDateString('en-GB') + ' ' + dt.toLocaleTimeString('en-GB', { hour: '2-digit', minute: '2-digit' }); }
+    else if (typeof v === 'string' && /^\d{4}-\d{2}-\d{2}$/.test(v)) v = window.isoToDMY(v);
     else v = LABELS[v] ?? v;
     return '"' + String(v).replace(/"/g, '""') + '"';
   };
