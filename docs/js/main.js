@@ -175,13 +175,13 @@
   });
 
   /* ============================== التوجيه ============================== */
-  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView, photos: photosView };
+  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView, photos: photosView, whatsapp: whatsappView };
 
   function route() {
     if (!me) return;
     const [path, qs] = (location.hash.replace(/^#\/?/, '') || 'home').split('?');
     let name = path || 'home';
-    if (!ROUTES[name] || ((name === 'users' || name === 'photos') && me.role !== 'admin')) name = 'home';
+    if (!ROUTES[name] || ((name === 'users' || name === 'photos' || name === 'whatsapp') && me.role !== 'admin')) name = 'home';
     $$('#nav a').forEach(a => a.classList.toggle('active', a.dataset.route === name));
     window.scrollTo(0, 0);
     ROUTES[name](new URLSearchParams(qs || ''));
@@ -874,6 +874,152 @@
       $('#phMsg').textContent = `تم رفع ${done} صورة` + (failed ? ` — فشل ${failed}` : '');
       toast(`تم رفع ${done} صورة` + (failed ? `، وفشل ${failed}` : ''), failed ? 'err' : 'ok');
     };
+  }
+
+  /* ============================== رسائل واتساب للمعيلين (للمشرف) ============================== */
+  async function callFn(name, body) {
+    const { data, error } = await sb.functions.invoke(name, { body });
+    if (error) {
+      let m = `تعذّر الاتصال بالدالة ${name}. تأكد من نشرها (انظر README).`;
+      try { const j = await error.context.json(); if (j?.error) m = j.error; } catch { /* ignore */ }
+      throw new Error(m);
+    }
+    if (data?.error) throw new Error(data.error);
+    return data;
+  }
+
+  const WA_DEFAULT = 'السلام عليكم ورحمة الله وبركاته\nالسيد/ة {المعيل}،\n\n';
+  const validPhone = p => /^\+?[0-9 \-]{8,18}$/.test(String(p || '').trim()) && String(p).replace(/\D/g, '').length >= 8;
+
+  async function whatsappView() {
+    view.innerHTML = `<div class="page-head"><div><h2>رسائل واتساب للمعيلين</h2>
+      <p>تُرسل عبر منصة SendWhats بوتيرة آمنة (فواصل عشوائية وحدود يومية) حتى لا يُحظر الرقم. الرسائل لا تُرسل قبل تأكيدك.</p></div></div>
+      <div class="wa-grid">
+        <div class="card"><h3>نص الرسالة</h3>
+          <textarea id="waText" rows="9" placeholder="اكتب الرسالة…"></textarea>
+          <div class="chips-row"><small>إدراج:</small>
+            <button type="button" class="chip btn-chip" data-ins="{المعيل}">{المعيل}</button>
+            <button type="button" class="chip btn-chip" data-ins="{الأيتام}">{الأيتام}</button>
+            <button type="button" class="chip btn-chip" data-ins="{صلة_القرابة}">{صلة_القرابة}</button></div>
+          <small class="note-s">{الأيتام} = الأسماء الأولى لأيتام العائلة. الرسالة تُرسل مرة واحدة لكل عائلة (رقم واحد).</small></div>
+        <div class="card"><h3>معاينة</h3><div id="waPrev" class="wa-prev">—</div><small id="waPrevWho" class="note-s"></small></div>
+      </div>
+      <div class="card" style="margin-top:16px"><h3>المستلمون</h3>
+        <div class="toolbar"><input id="waSearch" type="search" placeholder="بحث باسم المعيل أو اليتيم أو الرقم…"><span class="count" id="waCount"></span>
+          <label class="chk"><input type="checkbox" id="waAll"> تحديد كل الظاهر</label></div>
+        <div class="table-wrap"><table class="list"><thead><tr><th></th><th>المعيل</th><th>الصلة</th><th>الهاتف</th><th>الأيتام</th></tr></thead>
+        <tbody id="waRows"><tr><td colspan="5" class="empty">جارِ التحميل…</td></tr></tbody></table></div></div>
+      <div class="savebar" style="margin-top:16px"><p id="waMsg" class="msg"></p><div class="btns"><button class="btn lg ok" id="waSend" type="button" disabled>إرسال عبر واتساب</button></div></div>
+      <div class="card" style="margin-top:16px"><h3>الدفعات السابقة</h3><div id="waBatches" class="table-wrap"></div></div>`;
+
+    let rows;
+    try { rows = await fetchAll('orphans', 'id, full_name, mobile, family_id, family:families(id, guardian, guardian_relation, mother_phone)'); }
+    catch (e) { return ($('#waRows').innerHTML = `<tr><td colspan="5" class="msg err">${esc(e.message)}</td></tr>`); }
+
+    // عائلة واحدة = مستلم واحد؛ الرقم الأكثر تكراراً بين أيتامها ثم هاتف الأم
+    const fam = new Map();
+    rows.forEach(o => {
+      if (!o.family_id || !o.family) return;
+      let f = fam.get(o.family_id);
+      if (!f) fam.set(o.family_id, (f = { fid: o.family_id, guardian: o.family.guardian || '', relation: o.family.guardian_relation || '', phones: [], mother: o.family.mother_phone || '', orphans: [] }));
+      f.orphans.push(o.full_name);
+      if (validPhone(o.mobile)) f.phones.push(String(o.mobile).trim());
+    });
+    const list = [...fam.values()].map(f => {
+      const c = {};
+      f.phones.forEach(p => { const k = p.replace(/\D/g, ''); (c[k] ||= { p, n: 0 }).n++; });
+      const best = Object.values(c).sort((a, b) => b.n - a.n)[0];
+      f.phone = best ? best.p : (validPhone(f.mother) ? f.mother : '');
+      f.valid = !!f.phone;
+      return f;
+    }).sort((a, b) => a.guardian.localeCompare(b.guardian, 'ar'));
+
+    const sel = new Set();
+    const firstName = n => String(n).trim().split(/\s+/)[0];
+    const renderMsg = (f, text) => text.replace(/\{المعيل\}/g, f.guardian || 'ولي الأمر').replace(/\{الأيتام\}/g, f.orphans.map(firstName).join('، ')).replace(/\{صلة_القرابة\}/g, f.relation || '');
+    const shown = () => {
+      const q = $('#waSearch').value.trim().toLowerCase();
+      return list.filter(f => !q || [f.guardian, f.phone, ...f.orphans].some(v => String(v).toLowerCase().includes(q)));
+    };
+    const refresh = () => {
+      const chosen = list.filter(f => sel.has(f.fid));
+      $('#waCount').textContent = `${shown().length} عائلة — المحدد ${chosen.length}`;
+      $('#waSend').disabled = !chosen.length || !$('#waText').value.trim();
+      $('#waSend').textContent = chosen.length ? `إرسال إلى ${chosen.length} معيل` : 'إرسال عبر واتساب';
+      const f = chosen[0] || list[0];
+      $('#waPrev').textContent = f && $('#waText').value.trim() ? renderMsg(f, $('#waText').value) : '—';
+      $('#waPrevWho').textContent = f ? `مثال: ${f.guardian || 'ولي الأمر'}` : '';
+    };
+    const draw = () => {
+      const l = shown();
+      $('#waRows').innerHTML = l.length ? l.map(f => `<tr>
+        <td><input type="checkbox" data-f="${f.fid}" ${sel.has(f.fid) ? 'checked' : ''} ${f.valid ? '' : 'disabled'}></td>
+        <td><b>${esc(f.guardian || '—')}</b></td><td>${esc(f.relation)}</td>
+        <td dir="ltr" style="text-align:end">${f.valid ? esc(f.phone) : '<span class="tag off">لا يوجد رقم صالح</span>'}</td>
+        <td>${esc(f.orphans.map(firstName).join('، '))}</td></tr>`).join('') : '<tr><td colspan="5" class="empty">لا نتائج.</td></tr>';
+      refresh();
+    };
+    $('#waText').value = WA_DEFAULT;
+    $('#waText').oninput = refresh;
+    $('#waSearch').oninput = draw;
+    $('#waAll').onchange = e => { shown().filter(f => f.valid).forEach(f => (e.target.checked ? sel.add(f.fid) : sel.delete(f.fid))); draw(); };
+    $('#waRows').onchange = e => { const id = e.target.dataset?.f; if (id) { e.target.checked ? sel.add(id) : sel.delete(id); refresh(); } };
+    view.onclick = e => {
+      const ins = e.target.closest('[data-ins]');
+      if (ins) { const t = $('#waText'); const s = t.selectionStart ?? t.value.length; t.value = t.value.slice(0, s) + ins.dataset.ins + t.value.slice(t.selectionEnd ?? s); t.focus(); t.selectionStart = t.selectionEnd = s + ins.dataset.ins.length; refresh(); }
+      const st = e.target.closest('[data-status]');
+      if (st) showBatchStatus(st.dataset.status, st);
+    };
+
+    const loadBatches = async () => {
+      const { data, error } = await sb.from('wa_batches').select('id, created_at, message, total, recipients').order('created_at', { ascending: false }).limit(20);
+      $('#waBatches').innerHTML = error ? `<p class="msg err">${esc(error.message)} — تأكد من تشغيل migration_v7.sql</p>` : (data.length ? `<table class="list"><thead><tr><th>التاريخ</th><th>العدد</th><th>الرسالة</th><th></th></tr></thead><tbody>${data.map(b => `<tr>
+        <td>${new Date(b.created_at).toLocaleString('en-GB')}</td><td>${b.total}</td><td>${esc(String(b.message).slice(0, 80))}…</td>
+        <td class="act"><button class="btn link" data-status="${esc(b.id)}">الحالة</button></td></tr>
+        <tr class="status-row" id="st_${esc(b.id)}" hidden><td colspan="4"></td></tr>`).join('')}</tbody></table>` : '<p class="empty">لم تُرسل أي دفعة بعد.</p>');
+      window.__waBatches = Object.fromEntries((data || []).map(b => [b.id, b]));
+    };
+    await loadBatches();
+    draw();
+
+    $('#waSend').onclick = async () => {
+      const chosen = list.filter(f => sel.has(f.fid) && f.valid);
+      const text = $('#waText').value.trim();
+      if (!chosen.length || !text) return;
+      if (!confirm(`سيتم إرسال هذه الرسالة إلى ${chosen.length} معيل عبر واتساب.\n\nالمعاينة:\n${renderMsg(chosen[0], text).slice(0, 300)}\n\nهل أنت متأكد؟`)) return;
+      const btn = $('#waSend'), m = $('#waMsg');
+      btn.disabled = true; m.className = 'msg'; m.textContent = 'جارِ التسليم لمنصة SendWhats…';
+      const batchId = 'orphans-' + new Date().toISOString().replace(/\D/g, '').slice(0, 14);
+      try {
+        let queued = 0; const rejected = [];
+        for (let i = 0; i < chosen.length; i += 500) {
+          const part = chosen.slice(i, i + 500);
+          const res = await callFn('send-whatsapp', { action: 'send', batchId, messages: part.map(f => ({ externalId: f.fid, phone: f.phone, text: renderMsg(f, text) })) });
+          queued += res.queued || 0; rejected.push(...(res.rejected || []));
+        }
+        await sb.from('wa_batches').insert({ id: batchId, message: text, total: queued, recipients: chosen.map(f => ({ fid: f.fid, name: f.guardian, phone: f.phone })) });
+        m.className = 'msg ok';
+        m.textContent = `أُضيفت ${queued} رسالة إلى طابور الإرسال` + (rejected.length ? ` — رُفض ${rejected.length} (رقم غير صالح)` : '') + '. تُرسل تدريجياً.';
+        sel.clear(); draw(); await loadBatches();
+      } catch (err) { m.className = 'msg err'; m.textContent = err.message; }
+      btn.disabled = false; refresh();
+    };
+  }
+
+  async function showBatchStatus(batchId, btn) {
+    const row = $(`#st_${CSS.escape(batchId)}`);
+    const cell = row.firstElementChild;
+    row.hidden = false; cell.textContent = 'جارِ التحميل…';
+    btn.disabled = true;
+    try {
+      const s = await callFn('send-whatsapp', { action: 'status', batchId });
+      const names = Object.fromEntries(((window.__waBatches[batchId] || {}).recipients || []).map(r => [r.fid, r]));
+      const bad = (s.messages || []).filter(x => x.status === 'failed');
+      cell.innerHTML = `<b>الحالة:</b> ${esc(s.status)} — الإجمالي ${s.total} • أُرسلت ${s.sent} • وصلت ${s.delivered} • فشلت ${s.failed}` +
+        (s.lastError ? `<br><span class="msg err">${esc(s.lastError)}</span>` : '') +
+        (bad.length ? `<ul class="by-user" style="margin-top:8px">${bad.map(x => `<li><span>${esc((names[x.externalId] || {}).name || x.externalId)} — ${esc((names[x.externalId] || {}).phone || '')}</span><b>${esc(x.error || 'فشل')}</b></li>`).join('')}</ul>` : '');
+    } catch (e) { cell.innerHTML = `<span class="msg err">${esc(e.message)}</span>`; }
+    btn.disabled = false;
   }
 
   /* ============================== المستخدمون ============================== */

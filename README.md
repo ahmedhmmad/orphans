@@ -35,3 +35,11 @@
 ```bash
 npx http-server docs -p 5173
 ```
+
+## رسائل واتساب للمعيلين (عبر SendWhats)
+شاشة **رسائل واتساب** (للمشرف فقط) تُرسل رسالة لكل عائلة (رقم واحد) عبر منصة SendWhats بوتيرتها الآمنة.
+1. شغّل `supabase/migration_v7.sql` (جدول سجل الدفعات).
+2. في كونسول SendWhats (حساب مالك المؤسسة) أنشئ مفتاحاً من صفحة **API keys**، وتأكد أن رقم واتساب **متصل**.
+3. في Supabase: **Edge Functions ← Secrets** أضف `SENDWHATS_API_KEY` (والاختياري `SENDWHATS_API_URL`).
+4. انشر الدالة `supabase/functions/send-whatsapp/index.ts` باسم `send-whatsapp` (أوقف Verify JWT).
+المفتاح يبقى سراً في الخادم ولا يظهر في الموقع. الرقم المعتمد لكل عائلة هو الأكثر تكراراً بين أرقام أيتامها.
