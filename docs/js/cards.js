@@ -25,7 +25,7 @@
 
     $('#sheet').innerHTML = data.map(o => `
       <article class="idc">
-        <div class="head"><b>THIRD PILLAR</b><span>مؤسسة الركيزة الثالثة</span></div>
+        <div class="head"><img src="img/logo.png" alt="THIRD PILLAR"><span>مؤسسة الركيزة الثالثة</span></div>
         <div class="body">
           <div class="photo">${urls[o.photo_path] ? `<img src="${urls[o.photo_path]}" alt="">` : '<svg viewBox="0 0 24 24"><circle cx="12" cy="7.5" r="4.5"/><path d="M3 22c0-5 4-8.5 9-8.5s9 3.5 9 8.5z"/></svg>'}</div>
           <div class="info">

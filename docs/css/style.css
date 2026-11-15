@@ -459,3 +459,8 @@ body.paper input.is-empty, body.paper select.is-empty { color: transparent !impo
 .page-foot:not(:has(svg)) .qr-slot { display: none; }
 /* إخفاء رمز الكاميرا عند وجود صورة حقيقية */
 .photo:has(img:not([hidden])) .photo-cam { display: none; }
+
+/* الشعار الجديد (صورة) على الاستمارة */
+.brand-box { padding: 7px 20px; }
+.brand-box img { display: block; width: 300px; height: auto; }
+@media screen and (max-width: 820px) { .brand-box img { width: 230px; } }
