@@ -318,3 +318,6 @@ input[data-date] { direction: ltr; text-align: start; }
 .tag.warn { background: #fef0c7; color: #93370d; }
 .chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
 .chips-row .chip { cursor: pointer; }
+
+.sugg { margin-top: 4px; color: var(--ok); font-weight: 700; }
+.sugg b { font-family: monospace; font-size: 15px; }

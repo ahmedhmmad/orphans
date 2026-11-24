@@ -1033,6 +1033,35 @@
   const wordsOf = t => normAr(t).split(' ').filter(Boolean);
   const subsetOf = (a, b) => { const x = wordsOf(a), y = wordsOf(b); if (!x.length || !y.length) return false; const [s, l] = x.length <= y.length ? [x, y] : [y, x]; return s.every(w => l.includes(w)); };
 
+  // رقم التحقق: أول 8 أرقام × (1,2,1,2,…) وناتج ≥10 يُطرح منه 9، ثم 10 − (المجموع % 10) (والعشرة تصير 0)
+  const idCheckDigit = first8 => {
+    const d = String(first8).padStart(8, '0').slice(-8).split('').map(Number);
+    let sum = 0;
+    d.forEach((x, i) => { let p = x * (i % 2 ? 2 : 1); if (p > 9) p -= 9; sum += p; });
+    return (10 - (sum % 10)) % 10;
+  };
+  const validId9 = t => /^\d{9}$/.test(t) && idCheckDigit(t.slice(0, 8)) === Number(t[8]);
+  const AR_DIGITS = '٠١٢٣٤٥٦٧٨٩';
+  // يرجع null إن كان الرقم صحيحاً، وإلا {msg, suggest} مع الرقم الصحيح المقترح إن أمكن
+  function checkId(raw) {
+    const code = String(raw || '').trim();
+    if (!code) return { msg: 'رقم الهوية فارغ', suggest: null };
+    const digits = code.replace(/[٠-٩]/g, d => AR_DIGITS.indexOf(d)).replace(/\D/g, '');
+    const dirty = /[^0-9]/.test(code);
+    if (!digits) return { msg: `ليس رقماً: «${code}»`, suggest: null };
+    if (digits.length === 9) {
+      if (validId9(digits)) return dirty ? { msg: `يحوي رموزاً غير رقمية: «${code}»`, suggest: digits } : null;
+      const sug = digits.slice(0, 8) + idCheckDigit(digits.slice(0, 8));
+      return { msg: `رقم التحقق (الرقم التاسع) غير صحيح في «${code}»`, suggest: sug };
+    }
+    if (digits.length === 8) return { msg: `ثمانية أرقام فقط: «${code}» — ينقصه رقم التحقق`, suggest: digits + idCheckDigit(digits) };
+    if (digits.length === 10) {
+      const c = [...new Set([...digits].map((_, i) => digits.slice(0, i) + digits.slice(i + 1)).filter(validId9))];
+      return { msg: `عشرة أرقام: «${code}»` + (c.length > 1 ? ` — بدائل ممكنة: ${c.join('، ')}` : ''), suggest: c.length === 1 ? c[0] : null };
+    }
+    return { msg: `عدد خاناته ${digits.length} والمطلوب 9 أرقام: «${code}»`, suggest: null };
+  }
+
   function checkRecords(list) {
     const out = [];
     const nameBirth = {};
@@ -1040,13 +1069,12 @@
     const today = new Date();
     for (const o of list) {
       const f = o.family || {};
-      const add = (sev, type, detail) => out.push({ sev, type, detail, o });
+      const add = (sev, type, detail, suggest) => out.push({ sev, type, detail, suggest, o });
       const code = String(o.orphan_code || '').trim();
 
       // رقم الهوية
-      if (!code) add('err', 'رقم الهوية', 'رقم الهوية فارغ');
-      else if (/\D/.test(code)) add('err', 'رقم الهوية', `يحوي غير أرقام: «${code}»`);
-      else if (code.length !== 9) add('err', 'رقم الهوية', `عدد خاناته ${code.length} والمطلوب 9 أرقام: «${code}»`);
+      const idc = checkId(code);
+      if (idc) add('err', 'رقم الهوية', idc.msg, idc.suggest && idc.suggest !== code ? idc.suggest : null);
 
       // الاسم
       const nw = wordsOf(o.full_name);
@@ -1121,20 +1149,33 @@
       $('#isCount').textContent = `${l.length} مشكلة`;
       $('#isRows').innerHTML = l.length ? l.slice(0, 1500).map(x => `<tr class="clk" data-open="${x.o.id}">
         <td><span class="tag ${x.sev === 'err' ? 'off' : 'warn'}">${x.sev === 'err' ? 'خطأ' : 'ملاحظة'}</span></td><td>${esc(x.type)}</td>
-        <td><b>${esc(x.o.full_name || '—')}</b></td><td dir="ltr" style="text-align:end">${esc(x.o.orphan_code || '—')}</td><td>${esc(x.detail)}</td></tr>`).join('')
+        <td><b>${esc(x.o.full_name || '—')}</b></td><td dir="ltr" style="text-align:end">${esc(x.o.orphan_code || '—')}</td><td>${esc(x.detail)}${x.suggest ? `<div class="sugg">المقترح: <b dir="ltr">${esc(x.suggest)}</b> <button type="button" class="btn link" data-apply="${x.o.id}" data-sug="${esc(x.suggest)}" data-old="${esc(x.o.orphan_code || '')}">اعتماد</button></div>` : ''}</td></tr>`).join('')
         : '<tr><td colspan="5" class="empty">🎉 لا توجد مشاكل بهذه المرشحات.</td></tr>';
     };
     draw();
     $('#isSev').onchange = draw;
     $('#isSearch').oninput = draw;
+    const applyId = async btn => {
+      const id = btn.dataset.apply, sug = btn.dataset.sug, old = btn.dataset.old;
+      if (!confirm(`تغيير رقم الهوية من «${old || 'فارغ'}» إلى «${sug}»؟`)) return;
+      btn.disabled = true;
+      const { data: dup } = await sb.from('orphans').select('id, full_name').eq('orphan_code', sug).neq('id', id).limit(1);
+      if (dup && dup.length) { btn.disabled = false; return toast(`الرقم ${sug} مسجّل لدى «${dup[0].full_name}». افتح السجلين وتأكد أنهما ليسا تكراراً`, 'err'); }
+      const { error } = await sb.from('orphans').update({ orphan_code: sug }).eq('id', id);
+      if (error) { btn.disabled = false; return toast('تعذّر الاعتماد: ' + error.message, 'err'); }
+      toast('تم اعتماد الرقم الجديد', 'ok');
+      issuesView();
+    };
     view.onclick = e => {
+      const ap = e.target.closest('[data-apply]');
+      if (ap) { applyId(ap); return; }
       const c = e.target.closest('[data-t]');
       if (c) { type = c.dataset.t; draw(); return; }
       const r = e.target.closest('tr[data-open]');
       if (r) location.hash = '#/register?id=' + r.dataset.open;
     };
     $('#isCsv').onclick = () => {
-      const csv = ['"المستوى","النوع","اليتيم","رقم الهوية","المشكلة"'].concat(shown().map(x => [x.sev === 'err' ? 'خطأ' : 'ملاحظة', x.type, x.o.full_name, x.o.orphan_code, x.detail].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))).join('\r\n');
+      const csv = ['"المستوى","النوع","اليتيم","رقم الهوية","المشكلة","المقترح"'].concat(shown().map(x => [x.sev === 'err' ? 'خطأ' : 'ملاحظة', x.type, x.o.full_name, x.o.orphan_code, x.detail, x.suggest || ''].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))).join('\r\n');
       const a = document.createElement('a');
       a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
       a.download = `data-issues-${new Date().toISOString().slice(0, 10)}.csv`;
