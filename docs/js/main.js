@@ -175,7 +175,7 @@
   });
 
   /* ============================== التوجيه ============================== */
-  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView, photos: photosView, whatsapp: whatsappView };
+  const ROUTES = { home: homeView, register: registerView, records: recordsView, users: usersView, photos: photosView, whatsapp: whatsappView, issues: issuesView };
 
   function route() {
     if (!me) return;
@@ -1026,6 +1026,120 @@
         (bad.length ? `<ul class="by-user" style="margin-top:8px">${bad.map(x => `<li><span>${esc((names[x.externalId] || {}).name || x.externalId)} — ${esc((names[x.externalId] || {}).phone || '')}</span><b>${esc(x.error || 'فشل')}</b></li>`).join('')}</ul>` : '');
     } catch (e) { cell.innerHTML = `<span class="msg err">${esc(e.message)}</span>`; }
     btn.disabled = false;
+  }
+
+  /* ============================== فحص البيانات: شاشة الأخطاء ============================== */
+  const normAr = t => String(t || '').replace(/[ً-ْـ]/g, '').replace(/[أإآ]/g, 'ا').replace(/ى/g, 'ي').replace(/ة/g, 'ه').replace(/[^ء-يa-zA-Z\s]/g, ' ').replace(/\s+/g, ' ').trim();
+  const wordsOf = t => normAr(t).split(' ').filter(Boolean);
+  const subsetOf = (a, b) => { const x = wordsOf(a), y = wordsOf(b); if (!x.length || !y.length) return false; const [s, l] = x.length <= y.length ? [x, y] : [y, x]; return s.every(w => l.includes(w)); };
+
+  function checkRecords(list) {
+    const out = [];
+    const nameBirth = {};
+    list.forEach(o => { if (o.full_name && o.birth_date) (nameBirth[normAr(o.full_name) + '|' + o.birth_date] ||= []).push(o); });
+    const today = new Date();
+    for (const o of list) {
+      const f = o.family || {};
+      const add = (sev, type, detail) => out.push({ sev, type, detail, o });
+      const code = String(o.orphan_code || '').trim();
+
+      // رقم الهوية
+      if (!code) add('err', 'رقم الهوية', 'رقم الهوية فارغ');
+      else if (/\D/.test(code)) add('err', 'رقم الهوية', `يحوي غير أرقام: «${code}»`);
+      else if (code.length !== 9) add('err', 'رقم الهوية', `عدد خاناته ${code.length} والمطلوب 9 أرقام: «${code}»`);
+
+      // الاسم
+      const nw = wordsOf(o.full_name);
+      if (!o.full_name) add('err', 'الاسم', 'الاسم فارغ');
+      else {
+        if (nw.length < 3) add('warn', 'الاسم', `الاسم أقل من ثلاثي: «${o.full_name}»`);
+        if (!/[ء-ي]/.test(o.full_name)) add('warn', 'الاسم', `الاسم بلا حروف عربية: «${o.full_name}»`);
+        if (f.mother_name && nw.length >= 3 && subsetOf(o.full_name, f.mother_name) && !subsetOf(o.full_name, f.father_name || 'x y z')) add('err', 'الاسم', 'اسم اليتيم يطابق اسم الأم (غالباً خطأ تعبئة)');
+        const dup = nameBirth[normAr(o.full_name) + '|' + o.birth_date];
+        if (dup && dup.length > 1) add('err', 'تكرار', `نفس الاسم وتاريخ الميلاد مسجّلان ${dup.length} مرات`);
+      }
+
+      // تاريخ الميلاد والعمر
+      if (!o.birth_date) add('warn', 'تاريخ الميلاد', 'تاريخ الميلاد ناقص');
+      else {
+        const b = new Date(o.birth_date);
+        if (b > today) add('err', 'تاريخ الميلاد', 'تاريخ الميلاد في المستقبل');
+        else if (o.age !== null && o.age !== undefined) {
+          let a = today.getFullYear() - b.getFullYear();
+          if (today < new Date(today.getFullYear(), b.getMonth(), b.getDate())) a--;
+          if (Math.abs(a - o.age) > 1) add('warn', 'العمر', `العمر المسجّل ${o.age} لا يطابق تاريخ الميلاد (يعطي ${a})`);
+        }
+      }
+
+      // الهاتف
+      const digits = String(o.mobile || '').replace(/\D/g, '');
+      if (!digits) add('warn', 'الهاتف', 'رقم الهاتف فارغ');
+      else if (digits.length < 10 || digits.length > 13) add('warn', 'الهاتف', `رقم هاتف غير مكتمل: «${o.mobile}»`);
+
+      if (!o.photo_path) add('warn', 'الصورة', 'لا توجد صورة');
+
+      // العائلة
+      if (!o.family_id) add('err', 'العائلة', 'اليتيم غير مرتبط بعائلة');
+      else {
+        if (!f.father_name) add('warn', 'الأب', 'اسم الأب فارغ');
+        else if (wordsOf(f.father_name).length < 3) add('warn', 'الأب', `اسم الأب أقل من ثلاثي: «${f.father_name}»`);
+        if (!f.mother_name) add('warn', 'الأم', 'اسم الأم فارغ');
+        else if (wordsOf(f.mother_name).length < 3) add('warn', 'الأم', `اسم الأم أقل من ثلاثي: «${f.mother_name}»`);
+        if (!f.guardian) add('warn', 'المعيل', 'اسم المعيل فارغ');
+        else if (wordsOf(f.guardian).length < 3) add('warn', 'المعيل', `اسم المعيل أقل من ثلاثي: «${f.guardian}»`);
+        if (f.guardian && !f.guardian_relation) add('warn', 'المعيل', 'صلة قرابة المعيل غير محددة');
+        if (!f.housing_type) add('warn', 'السكن', 'نوع السكن غير محدد');
+        (f.siblings || []).forEach(s => { if (s.name && !s.relation) add('warn', 'الإخوة', `أخ بلا صلة قرابة: «${s.name}»`); });
+      }
+    }
+    return out;
+  }
+
+  async function issuesView() {
+    view.innerHTML = `<div class="page-head"><div><h2>فحص البيانات</h2><p>أخطاء وملاحظات في السجلات: أرقام هوية خاطئة، أسماء ناقصة، تكرار، عائلات غير مكتملة… اضغط على أي سطر لفتح السجل وتصحيحه.</p></div>
+      <div class="cta" style="margin:0"><button class="btn ghost" id="isCsv" type="button">تصدير CSV</button></div></div>
+      <div id="isChips" class="chips-row" style="margin-bottom:12px"></div>
+      <div class="toolbar"><select id="isSev"><option value="">كل المستويات</option><option value="err">أخطاء فقط</option><option value="warn">ملاحظات فقط</option></select>
+        <input id="isSearch" type="search" placeholder="بحث بالاسم أو رقم الهوية أو نص المشكلة…"><span class="count" id="isCount"></span></div>
+      <div class="card" style="padding:0"><div class="table-wrap"><table class="list"><thead><tr><th>المستوى</th><th>النوع</th><th>اليتيم</th><th>رقم الهوية</th><th>المشكلة</th></tr></thead>
+      <tbody id="isRows"><tr><td colspan="5" class="empty">جارِ الفحص…</td></tr></tbody></table></div></div>`;
+
+    let list;
+    try { list = await fetchAll('orphans', 'id, orphan_code, full_name, gender, age, birth_date, mobile, photo_path, family_id, family:families(father_name, mother_name, guardian, guardian_relation, housing_type, siblings)'); }
+    catch (e) { return ($('#isRows').innerHTML = `<tr><td colspan="5" class="msg err">${esc(e.message)}</td></tr>`); }
+    const all = checkRecords(list).sort((a, b) => (a.sev === b.sev ? 0 : a.sev === 'err' ? -1 : 1) || String(a.o.full_name).localeCompare(String(b.o.full_name), 'ar'));
+    let type = '';
+    const types = [...new Set(all.map(x => x.type))];
+    const shown = () => {
+      const sev = $('#isSev').value, q = $('#isSearch').value.trim().toLowerCase();
+      return all.filter(x => (!type || x.type === type) && (!sev || x.sev === sev) && (!q || [x.o.full_name, x.o.orphan_code, x.detail, x.type].some(v => String(v ?? '').toLowerCase().includes(q))));
+    };
+    const draw = () => {
+      const l = shown();
+      const errN = all.filter(x => x.sev === 'err').length;
+      $('#isChips').innerHTML = `<span class="chip ${type ? '' : 'on'}" data-t="">الكل ${all.length}</span>` + types.map(t => `<span class="chip ${type === t ? 'on' : ''}" data-t="${esc(t)}">${esc(t)} ${all.filter(x => x.type === t).length}</span>`).join('') + `<small style="margin-inline-start:auto">${errN} خطأ • ${all.length - errN} ملاحظة • ${list.length} سجل مفحوص</small>`;
+      $('#isCount').textContent = `${l.length} مشكلة`;
+      $('#isRows').innerHTML = l.length ? l.slice(0, 1500).map(x => `<tr class="clk" data-open="${x.o.id}">
+        <td><span class="tag ${x.sev === 'err' ? 'off' : 'warn'}">${x.sev === 'err' ? 'خطأ' : 'ملاحظة'}</span></td><td>${esc(x.type)}</td>
+        <td><b>${esc(x.o.full_name || '—')}</b></td><td dir="ltr" style="text-align:end">${esc(x.o.orphan_code || '—')}</td><td>${esc(x.detail)}</td></tr>`).join('')
+        : '<tr><td colspan="5" class="empty">🎉 لا توجد مشاكل بهذه المرشحات.</td></tr>';
+    };
+    draw();
+    $('#isSev').onchange = draw;
+    $('#isSearch').oninput = draw;
+    view.onclick = e => {
+      const c = e.target.closest('[data-t]');
+      if (c) { type = c.dataset.t; draw(); return; }
+      const r = e.target.closest('tr[data-open]');
+      if (r) location.hash = '#/register?id=' + r.dataset.open;
+    };
+    $('#isCsv').onclick = () => {
+      const csv = ['"المستوى","النوع","اليتيم","رقم الهوية","المشكلة"'].concat(shown().map(x => [x.sev === 'err' ? 'خطأ' : 'ملاحظة', x.type, x.o.full_name, x.o.orphan_code, x.detail].map(v => '"' + String(v ?? '').replace(/"/g, '""') + '"').join(','))).join('\r\n');
+      const a = document.createElement('a');
+      a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+      a.download = `data-issues-${new Date().toISOString().slice(0, 10)}.csv`;
+      a.click(); URL.revokeObjectURL(a.href);
+    };
   }
 
   /* ============================== المستخدمون ============================== */

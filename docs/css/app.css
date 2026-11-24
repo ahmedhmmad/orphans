@@ -314,3 +314,7 @@ input[data-date] { direction: ltr; text-align: start; }
 .brand-box.sm { padding: 0; background: transparent; }
 .brand-box.sm img { width: 180px; }
 .side-brand .brand-box { background: transparent; }
+
+.tag.warn { background: #fef0c7; color: #93370d; }
+.chip.on { background: var(--navy); color: #fff; border-color: var(--navy); }
+.chips-row .chip { cursor: pointer; }
